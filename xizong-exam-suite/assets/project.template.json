@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "project_name": "我的西综单元练习",
+  "mode": "unit_practice",
+  "purpose": "practice",
+  "scope_policy": "lecture_only",
+  "target_exam": "西医综合",
+  "target_year": null,
+  "official_alignment_verified": false,
+  "upstream_integration": {
+    "enabled": true,
+    "policy": "design_only",
+    "modules": ["dispatcher", "a1_concept", "a2_case_summary", "case_workflow", "b_matching", "x_multi"],
+    "require_question_links": true,
+    "bridge_path": "upstream-bridge.json",
+    "dispatcher_refs": ["upstream-dispatcher"]
+  },
+  "exam_profile": {
+    "option_count": 4,
+    "x_min_correct": 2,
+    "x_max_correct": 4,
+    "x_scoring": "exact_set",
+    "b_reuse_allowed": true
+  },
+  "sources": [
+    {
+      "id": "L1",
+      "title": "我的单元讲义",
+      "role": "lecture",
+      "path": "materials/lecture.md",
+      "version": "请填写版本",
+      "extraction": "native",
+      "ocr_reviewed": false
+    }
+  ],
+  "units": [
+    {
+      "id": "U001",
+      "title": "请填写单元名称",
+      "materials": [
+        {
+          "source_id": "L1",
+          "pages": [],
+          "sections": []
+        }
+      ],
+      "request": {
+        "total_questions": 10,
+        "type_counts": {
+          "A1": 6,
+          "X": 4
+        },
+        "difficulty_counts": {}
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+Thumbs.db
+
+.repo-backups/
+*/.git.case-skill-backup/
+
+*/examples/*.md
+!*/examples/README.md
+
+西综病例-Skill/output/
+西综病例-Skill/tools/__pycache__/
+西综病例-Skill/tools/workflow_creator.py

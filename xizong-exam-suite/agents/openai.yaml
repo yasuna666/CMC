@@ -1,0 +1,4 @@
+interface:
+  display_name: "西综讲义命题与复习套件"
+  short_description: "按单元讲义生成有据可查的西综模拟题，并复用原有真题分析和复习模块"
+  default_prompt: "请使用 $xizong-exam-suite，根据我提供的单元讲义生成西综模拟题，附答案、逐项解析、讲义出处和覆盖审核表。"

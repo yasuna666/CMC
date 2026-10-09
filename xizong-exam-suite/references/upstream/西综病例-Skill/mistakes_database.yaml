@@ -1,0 +1,83 @@
+# mistakes_database.yaml
+# 西综病例-Skill 内置错误模式库
+
+common_mistakes:
+  急性心肌梗死:
+    - id: MI_001
+      pattern: "NSTEMI用溶栓"
+      description: "将STEMI的溶栓指征错误应用于NSTEMI"
+      why_wrong: "NSTEMI溶栓不仅无效，还可能增加出血风险"
+      correct_logic: "只有STEMI可溶栓，NSTEMI用抗血小板+抗凝+早期介入"
+      frequency: "极高"
+      
+    - id: MI_002
+      pattern: "PCI时间窗24小时"
+      description: "误以为STEMI的PCI时间窗是24小时"
+      why_wrong: "STEMI是12小时，超过12小时不再急诊PCI"
+      correct_logic: "症状<12小时：急诊PCI；12-24小时：补救性PCI；>24小时：择期"
+      frequency: "高"
+      
+    - id: MI_003
+      pattern: "下壁心梗用硝酸甘油"
+      description: "下壁心梗合并右室梗死时错误使用硝酸甘油"
+      why_wrong: "右室心梗依赖前负荷，硝酸甘油扩张静脉→前负荷降低→休克"
+      correct_logic: "下壁心梗+低血压→禁用硝酸酯/利尿剂→先补液"
+      frequency: "中"
+      
+    - id: MI_004
+      pattern: "室颤同步除颤"
+      description: "室颤时使用同步电除颤"
+      why_wrong: "室颤时无有效R波，同步模式无法识别"
+      correct_logic: "室颤→非同步电除颤（200J开始）；房颤→同步电除颤"
+      frequency: "高"
+      
+    - id: MI_005
+      pattern: "溶栓后不管了"
+      description: "以为溶栓成功就完事，不造影"
+      why_wrong: "溶栓后必须评估血管是否再通"
+      correct_logic: "溶栓后3-24小时内必须行冠脉造影"
+      frequency: "中"
+
+  结核性腹膜炎:
+    - id: TB_001
+      pattern: "ADA临界值颠倒"
+      description: "结核性>45和癌性<45记反"
+      why_wrong: "记忆混淆"
+      correct_logic: "结核高(>45U/L)，癌性低(<45U/L)"
+      frequency: "极高"
+      
+    - id: TB_002
+      pattern: "找抗酸杆菌阳性率高"
+      description: "误以为腹水找抗酸杆菌是确诊方法"
+      why_wrong: "实际阳性率仅5%，很低"
+      correct_logic: "ADA>45是重要参考，确诊靠腹腔镜+活检"
+      frequency: "高"
+      
+    - id: TB_003
+      pattern: "渗出液与漏出液混淆"
+      description: "结核性腹膜炎与肝硬化腹水性质混淆"
+      why_wrong: "前者是渗出液，后者是漏出液"
+      correct_logic: "渗出液：比重>1.018，蛋白>30g/L；漏出液：比重<1.018，蛋白<25g/L"
+      frequency: "中"
+      
+    - id: TB_004
+      pattern: " Light标准用于腹水"
+      description: "用Light标准鉴别腹水渗出液/漏出液"
+      why_wrong: "Light标准主要用于胸腔积液"
+      correct_logic: "腹水鉴别用SAAG（血清-腹水白蛋白梯度）"
+      frequency: "中"
+
+  急性左心衰:
+    - id: HF_001
+      pattern: "干湿冷暖分型混淆"
+      description: "分不清干暖/干冷/湿暖/湿冷的治疗策略"
+      why_wrong: "分型决定治疗方案"
+      correct_logic: "湿暖→扩血管+利尿；湿冷+低血压→正性肌力药；干冷→扩容"
+      frequency: "高"
+      
+    - id: HF_002
+      pattern: "急性肺水肿用洋地黄"
+      description: "急性左心衰肺水肿时首选洋地黄"
+      why_wrong: "洋地黄起效慢，急性肺水肿首选利尿+扩血管"
+      correct_logic: "急性肺水肿：吗啡+利尿+扩血管；洋地黄用于房颤或慢性心衰"
+      frequency: "中"

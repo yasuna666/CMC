@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+Thumbs.db
+
+output/
+
+examples/*.md
+!examples/README.md
+
+tools/workflow_creator.py
