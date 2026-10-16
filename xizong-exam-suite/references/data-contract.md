@@ -23,7 +23,7 @@
 
 顶层：schema_version=1、unit_id、title、source_type=generated_mock、purpose、source_index_sha256、source_issues、integration、points、blueprint、groups、questions。启用桥接时 integration 至少含 `policy=design_only`、`bridge_sha256` 和 `dispatcher_refs`。
 
-points 每条：id、label、objective、status（ready/hold）、source_blocks（块 ID 列表）、hold_reason。ready 至少一个 lecture 来源；hold 有原因，不能用于出题。
+points 每条：knowledge_ids（实际产物复用/再练需跨轮稳定知识 ID 数组）、id、label、objective、status（ready/hold）、source_blocks（块 ID 列表）、hold_reason。ready 至少一个 lecture 来源；hold 有原因，不能用于出题。
 
 blueprint 每条：question_id、type、point_id（主考点）、cognitive_level，每个小题一条。
 
@@ -40,7 +40,7 @@ questions 每条：
 | options | A/B/C/D 等连续字母键；B 小题为空对象，引用组内选项 |
 | answer | 正确选项字母数组 |
 | point_ids | 第一个为主考点，其余为次考点 |
-| upstream_refs | 启用桥接时至少一条；每条含 artifact_id、module、transfer_goal，且必须包含题型对应模块 |
+| upstream_refs | 启用桥接时至少一条；每条含 artifact_id、module、transfer_goal；module_output 还需非空 item_ids，且必须包含题型对应模块 |
 | cognitive_level | memory/understanding/application/integration |
 | difficulty | level（easy/medium/hard）和 reason，不是实测难度 |
 | high_risk | 必须显式 true/false，不可遗漏 |
@@ -66,3 +66,13 @@ acknowledged_warnings 为“警告 code: 实际接受理由”的对象。错误
 默认每轮创建 output/mock-exams/下的新运行目录。所有脚本拒绝覆盖已有文件/导出目录；修改后使用 r02、r03 等新目录。哈希以 UTF-8 文件实际字节计算，格式化 JSON 也会让复核失效，这是有意设计。
 
 校验器不判断模型是否真做过医学核对，也不能证明复答人未看到答案；这些必须由工作流程和真实执行记录保证。
+
+## 桥接 v2 与学习闭环
+
+- project.upstream_integration 新增 reuse_mode=rules_only/artifact_reuse；bank.integration 和 bridge 的 reuse_mode 必须一致。内置规则 ID 以 bridge 实际输出为准，默认 rules-dispatcher。
+- bridge.schema_version=2；question_type_map 必须精确匹配五类题型，routing_refs 必须与 dispatcher_refs 一致且均为有效调度器引用。全部 artifacts 的文件哈希强制核对。
+- role=module_output 的 path 指向结构化 JSON，要求 schema_version=1、module、origins、items；每个条目通过 point_map 映射本轮考点。格式与迁移见 upstream-bridge.md，模块 payload 见 module-adapters.md。
+- artifact_reuse 每题主考点至少复用其题型模块的一条真实条目；可附加其他模块，重复 artifact 引用应合并 item_ids。
+- attempts：由 attempt-template 生成。schema_version=1、unit_id、bank_sha256、source_index_sha256、attempt_id、learner_id、completed_at（含时区）、record_type、responses。selected=null 与 [] 分别表示未作答和提交空答案。
+- feedback：包含逐题选项差异、暂定/已复核状态、真实错因等级及本次统计；不输出官方分数、掌握率或自动累加历史。
+- remediation-plan：包含原题、原作答及索引路径/哈希、稳定知识 ID、模块条目和待补学目标。新 bank.remediation 绑定 plan_path（相对项目目录）与 plan_sha256；新题 remediation_refs 含 target_id、variation_note。详情见 learning-loop.md。

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "module": "a2_case_summary",
+  "origins": [
+    {
+      "path": "lecture.md",
+      "sha256": "03f2c1c182e7ea305acffb485d79660149e097e27851a62cac8d027aa060dbb9",
+      "locator": "四条完整规则；虚构工程材料"
+    }
+  ],
+  "items": [
+    {
+      "id": "item-K1",
+      "knowledge_id": "DEMO-K1",
+      "label": "甲通道",
+      "demo_point_ids": [
+        "K1"
+      ],
+      "payload": {
+        "clues": [
+          "M 两侧浓度相等时无净转运"
+        ],
+        "reasoning_chain": [
+          "提取所问转运对象与驱动力",
+          "只单独转运 M，沿 M 梯度，不直接消耗 E",
+          "结合停止条件排除不符结构"
+        ],
+        "differential_matrix": [
+          "与丙载体区别：不共同转运 N"
+        ]
+      }
+    },
+    {
+      "id": "item-K2",
+      "knowledge_id": "DEMO-K2",
+      "label": "乙泵",
+      "demo_point_ids": [
+        "K2"
+      ],
+      "payload": {
+        "clues": [
+          "E 耗尽立即停止"
+        ],
+        "reasoning_chain": [
+          "提取所问转运对象与驱动力",
+          "只单独转运 M，可逆 M 梯度，直接消耗 E",
+          "结合停止条件排除不符结构"
+        ],
+        "differential_matrix": [
+          "与甲通道区别：直接消耗 E"
+        ]
+      }
+    },
+    {
+      "id": "item-K3",
+      "knowledge_id": "DEMO-K3",
+      "label": "丙载体",
+      "demo_point_ids": [
+        "K3"
+      ],
+      "payload": {
+        "clues": [
+          "M 梯度消失立即停止"
+        ],
+        "reasoning_chain": [
+          "提取所问转运对象与驱动力",
+          "N 与 M 同向共同转运，依赖 M 梯度，不直接消耗 E",
+          "结合停止条件排除不符结构"
+        ],
+        "differential_matrix": [
+          "与乙泵区别：不直接消耗 E"
+        ]
+      }
+    },
+    {
+      "id": "item-K4",
+      "knowledge_id": "DEMO-K4",
+      "label": "丁门",
+      "demo_point_ids": [
+        "K4"
+      ],
+      "payload": {
+        "clues": [
+          "无 R 时 P 不能通过"
+        ],
+        "reasoning_chain": [
+          "提取所问转运对象与驱动力",
+          "只转运 P，当且仅当 R 出现时开放，不直接消耗 E",
+          "结合停止条件排除不符结构"
+        ],
+        "differential_matrix": [
+          "与其余结构区别：转运对象为 P，受 R 控制"
+        ]
+      }
+    }
+  ]
+}

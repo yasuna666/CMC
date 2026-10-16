@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "module": "case_workflow",
+  "origins": [
+    {
+      "path": "lecture.md",
+      "sha256": "03f2c1c182e7ea305acffb485d79660149e097e27851a62cac8d027aa060dbb9",
+      "locator": "四条完整规则；虚构工程材料"
+    }
+  ],
+  "items": [
+    {
+      "id": "item-K1",
+      "knowledge_id": "DEMO-K1",
+      "label": "甲通道",
+      "demo_point_ids": [
+        "K1"
+      ],
+      "payload": {
+        "nodes": [
+          {
+            "id": "identify",
+            "condition": "已给出虚构实验的初始条件",
+            "action": "只单独转运 M，沿 M 梯度，不直接消耗 E"
+          },
+          {
+            "id": "change",
+            "condition": "实验改变一个条件",
+            "action": "M 两侧浓度相等时无净转运"
+          }
+        ],
+        "edges": [
+          {
+            "from": "identify",
+            "to": "change",
+            "relation": "按题干给定实验条件推进；不能把上一小题的选择当作下一题事实"
+          }
+        ]
+      }
+    },
+    {
+      "id": "item-K2",
+      "knowledge_id": "DEMO-K2",
+      "label": "乙泵",
+      "demo_point_ids": [
+        "K2"
+      ],
+      "payload": {
+        "nodes": [
+          {
+            "id": "identify",
+            "condition": "已给出虚构实验的初始条件",
+            "action": "只单独转运 M，可逆 M 梯度，直接消耗 E"
+          },
+          {
+            "id": "change",
+            "condition": "实验改变一个条件",
+            "action": "E 耗尽立即停止"
+          }
+        ],
+        "edges": [
+          {
+            "from": "identify",
+            "to": "change",
+            "relation": "按题干给定实验条件推进；不能把上一小题的选择当作下一题事实"
+          }
+        ]
+      }
+    },
+    {
+      "id": "item-K3",
+      "knowledge_id": "DEMO-K3",
+      "label": "丙载体",
+      "demo_point_ids": [
+        "K3"
+      ],
+      "payload": {
+        "nodes": [
+          {
+            "id": "identify",
+            "condition": "已给出虚构实验的初始条件",
+            "action": "N 与 M 同向共同转运，依赖 M 梯度，不直接消耗 E"
+          },
+          {
+            "id": "change",
+            "condition": "实验改变一个条件",
+            "action": "M 梯度消失立即停止"
+          }
+        ],
+        "edges": [
+          {
+            "from": "identify",
+            "to": "change",
+            "relation": "按题干给定实验条件推进；不能把上一小题的选择当作下一题事实"
+          }
+        ]
+      }
+    },
+    {
+      "id": "item-K4",
+      "knowledge_id": "DEMO-K4",
+      "label": "丁门",
+      "demo_point_ids": [
+        "K4"
+      ],
+      "payload": {
+        "nodes": [
+          {
+            "id": "identify",
+            "condition": "已给出虚构实验的初始条件",
+            "action": "只转运 P，当且仅当 R 出现时开放，不直接消耗 E"
+          },
+          {
+            "id": "change",
+            "condition": "实验改变一个条件",
+            "action": "无 R 时 P 不能通过"
+          }
+        ],
+        "edges": [
+          {
+            "from": "identify",
+            "to": "change",
+            "relation": "按题干给定实验条件推进；不能把上一小题的选择当作下一题事实"
+          }
+        ]
+      }
+    }
+  ]
+}

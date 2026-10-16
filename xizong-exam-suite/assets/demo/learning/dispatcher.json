@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "module": "dispatcher",
+  "origins": [
+    {
+      "path": "lecture.md",
+      "sha256": "03f2c1c182e7ea305acffb485d79660149e097e27851a62cac8d027aa060dbb9",
+      "locator": "四条完整规则；虚构工程材料"
+    }
+  ],
+  "items": [
+    {
+      "id": "route",
+      "knowledge_id": "PLAN-DEMO",
+      "label": "虚构单元设计计划",
+      "demo_point_ids": [
+        "K1",
+        "K2",
+        "K3",
+        "K4"
+      ],
+      "payload": {
+        "scope": "仅虚构讲义的四条规则；10 个计分小题，非真实医学材料",
+        "task_mode": "generate",
+        "target_modules": [
+          "a1_concept",
+          "a2_case_summary",
+          "case_workflow",
+          "b_matching",
+          "x_multi"
+        ]
+      }
+    }
+  ]
+}

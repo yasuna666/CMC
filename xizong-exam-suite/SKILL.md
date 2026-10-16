@@ -1,6 +1,6 @@
 ---
 name: xizong-exam-suite
-description: 根据西医综合单元讲义生成原创模拟题、逐项解析、来源定位和考点覆盖表；支持 A1、A2、共用题干病例题组、B 型配伍和 X 型多选，同时提供原有西综真题分类、概念簇与病例工作流。用户要求按讲义出题、单元测验、模拟卷、变式题、审题，或处理西综真题与复习笔记时使用。
+description: 根据西医综合单元讲义生成原创模拟题、逐项解析、来源定位和考点覆盖表；支持 A1、A2、共用题干病例题组、B 型配伍和 X 型多选，同时提供原有西综真题分类、概念簇与病例工作流。用户要求按讲义出题、单元测验、模拟卷、变式题、审题，或处理西综真题、复习笔记、作答反馈与错题定向再练时使用。
 ---
 
 # 西综讲义命题与复习套件
@@ -13,17 +13,24 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 
 1. 定位用户提供的讲义；未提供则索取，不编造用户讲义。
 2. 读取 [讲义命题流程](references/lecture-workflow.md)、[题型规则](references/question-rules.md)、[审核规范](references/quality-review.md) 和 [六模块桥接](references/upstream-bridge.md)。
-3. 在用户工作目录创建配置；相对数据路径基于配置目录，不基于 Skill 安装目录。新项目默认启用六模块桥接，先生成 `upstream-bridge.json`。
+3. 在用户工作目录创建配置；相对数据路径基于配置目录，不基于 Skill 安装目录。新项目默认启用六模块桥接，先生成 v2 `upstream-bridge.json`；无积累用 rules_only，有实际学习产物用 artifact_reuse。
 4. 默认做单元练习，建议先做 10 题。沿用用户已给的数量与格式，不反复确认普通偏好。
 5. 按 [数据约定](references/data-contract.md) 组织题目，以 `scripts/exam_tool.py` 校验和导出。
 
 安装、配置和命令见 [使用说明](references/usage.md)。本套件提供统一入口及七个工作分支，六个原技能完整附带，无需依赖宿主对子技能的自动发现。
+
+## 模块协作
+
+先读 [模块适配协议](references/module-adapters.md)。study 使用原真题 SOP；generate 先取概念、鉴别矩阵或决策链再命题；remediate 先读取真实作答和计划再补学、出变式。按需加载，不要求每题运行全部六模块。
+
+实际复用时，以稳定 knowledge_id 贯穿原学习条目、本轮考点和再练目标。每题 upstream_refs 指明真实 artifact/item_ids；使用 SHA-256 绑定产物及原始输入。单纯规则引用不能声称复用了历史积累。
 
 ## 任务路由
 
 | 请求 | 按需读取 |
 |---|---|
 | 根据讲义出题、测验、模拟卷、变式题 | [讲义命题流程](references/lecture-workflow.md) |
+| 批改实际作答、分析错因、定向再练 | [学习闭环](references/learning-loop.md) + [模块适配协议](references/module-adapters.md) |
 | 审核已生成的模拟题 | [审核规范](references/quality-review.md)，要求题目及真实来源 |
 | 分析整份真题 | [兼容规则](references/integration.md) + [原总调度](references/upstream/西综总调度-Skill/SKILL.md) |
 | A1 解析与概念卡 | [兼容规则](references/integration.md) + [原 A1](references/upstream/西综A1概念簇-Skill/SKILL.md) |
@@ -58,7 +65,10 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 - `references/usage.md`：使用命令。
 - `references/provenance.md`：来源与版本。
 - `references/validation-report.md`：已完成的验证及适用范围。
-- `scripts/exam_tool.py`：初始化、索引、校验、盲答包、导出。
+- `references/module-adapters.md`：六模块向命题分支交付的最小结构化内容。
+- `references/learning-loop.md`：真实作答、暂定/已复核反馈、定向变式追踪。
+- `scripts/exam_tool.py`：初始化、索引、桥接、校验、盲答包、导出、空作答模板和反馈计划。
+- `scripts/learning_bridge.py`、`scripts/learning_loop.py`：上述命令的标准库实现。
 - `assets/`：空白配置、题库模板、上游哈希、明确虚构的工程演示。
 - `references/upstream/`：完整原始仓库文件，字节不变。
 

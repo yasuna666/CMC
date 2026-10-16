@@ -15,7 +15,10 @@
       "source_blocks": [
         "L1:B00002"
       ],
-      "hold_reason": ""
+      "hold_reason": "",
+      "knowledge_ids": [
+        "DEMO-K1"
+      ]
     },
     {
       "id": "K2",
@@ -25,7 +28,10 @@
       "source_blocks": [
         "L1:B00003"
       ],
-      "hold_reason": ""
+      "hold_reason": "",
+      "knowledge_ids": [
+        "DEMO-K2"
+      ]
     },
     {
       "id": "K3",
@@ -35,7 +41,10 @@
       "source_blocks": [
         "L1:B00004"
       ],
-      "hold_reason": ""
+      "hold_reason": "",
+      "knowledge_ids": [
+        "DEMO-K3"
+      ]
     },
     {
       "id": "K4",
@@ -45,7 +54,10 @@
       "source_blocks": [
         "L1:B00005"
       ],
-      "hold_reason": ""
+      "hold_reason": "",
+      "knowledge_ids": [
+        "DEMO-K4"
+      ]
     }
   ],
   "blueprint": [
@@ -201,7 +213,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-a1_concept",
+          "module": "a1_concept",
+          "item_ids": [
+            "item-K2"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A1题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-002",
@@ -275,7 +297,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-a1_concept",
+          "module": "a1_concept",
+          "item_ids": [
+            "item-K3"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A1题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-003",
@@ -349,7 +381,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-a1_concept",
+          "module": "a1_concept",
+          "item_ids": [
+            "item-K4"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A1题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-004",
@@ -423,7 +465,25 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-a2_case_summary",
+          "module": "a2_case_summary",
+          "item_ids": [
+            "item-K1"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A2题，答案仍引用虚构讲义"
+        },
+        {
+          "artifact_id": "demo-a1_concept",
+          "module": "a1_concept",
+          "item_ids": [
+            "item-K1"
+          ],
+          "transfer_goal": "复用基础概念对比排除其他结构，与 A2 线索联合设计"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-005",
@@ -497,7 +557,25 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-a2_case_summary",
+          "module": "a2_case_summary",
+          "item_ids": [
+            "item-K4"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A2题，答案仍引用虚构讲义"
+        },
+        {
+          "artifact_id": "demo-a1_concept",
+          "module": "a1_concept",
+          "item_ids": [
+            "item-K4"
+          ],
+          "transfer_goal": "复用基础概念对比排除其他结构，与 A2 线索联合设计"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-006",
@@ -566,7 +644,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-b_matching",
+          "module": "b_matching",
+          "item_ids": [
+            "item-K2"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计B题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-007",
@@ -635,7 +723,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-b_matching",
+          "module": "b_matching",
+          "item_ids": [
+            "item-K4"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计B题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-008",
@@ -709,7 +807,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-case_workflow",
+          "module": "case_workflow",
+          "item_ids": [
+            "item-K2"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A3A4题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-009",
@@ -783,7 +891,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-case_workflow",
+          "module": "case_workflow",
+          "item_ids": [
+            "item-K4"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计A3A4题，答案仍引用虚构讲义"
+        }
+      ]
     },
     {
       "id": "MOCK-DEMO-010",
@@ -858,7 +976,17 @@
             "L1:B00005"
           ]
         }
-      }
+      },
+      "upstream_refs": [
+        {
+          "artifact_id": "demo-x_multi",
+          "module": "x_multi",
+          "item_ids": [
+            "item-K3"
+          ],
+          "transfer_goal": "使用该条目的条件与对比关系设计X题，答案仍引用虚构讲义"
+        }
+      ]
     }
   ]
 }

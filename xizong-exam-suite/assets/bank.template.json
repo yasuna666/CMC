@@ -9,7 +9,10 @@
   "integration": {
     "policy": "design_only",
     "bridge_sha256": "",
-    "dispatcher_refs": ["upstream-dispatcher"]
+    "dispatcher_refs": [
+      "rules-dispatcher"
+    ],
+    "reuse_mode": "rules_only"
   },
   "points": [],
   "blueprint": [],

@@ -10,10 +10,16 @@
   "upstream_integration": {
     "enabled": true,
     "policy": "design_only",
-    "modules": ["dispatcher", "a1_concept", "a2_case_summary", "case_workflow", "b_matching", "x_multi"],
-    "require_question_links": true,
+    "modules": [
+      "dispatcher",
+      "a1_concept",
+      "a2_case_summary",
+      "case_workflow",
+      "b_matching",
+      "x_multi"
+    ],
     "bridge_path": "upstream-bridge.json",
-    "dispatcher_refs": ["upstream-dispatcher"]
+    "reuse_mode": "rules_only"
   },
   "exam_profile": {
     "option_count": 4,

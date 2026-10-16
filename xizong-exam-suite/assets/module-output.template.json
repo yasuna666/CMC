@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "module": "a1_concept",
+  "origins": [
+    {
+      "path": "learning/实际概念簇.md",
+      "sha256": "填写实际文件 SHA-256",
+      "locator": "概念对比与干扰预警"
+    }
+  ],
+  "items": [
+    {
+      "id": "contrast-001",
+      "knowledge_id": "填写项目内跨题型稳定知识ID",
+      "label": "填写实际概念名",
+      "payload": {
+        "core_statement": "填写有依据的核心命题",
+        "conditions": [
+          "成立条件"
+        ],
+        "contrasts": [
+          "与相关概念的鉴别维度"
+        ],
+        "error_patterns": [
+          "设计层面的混淆模式，不是已确认个人错因"
+        ]
+      }
+    }
+  ]
+}

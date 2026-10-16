@@ -20,7 +20,7 @@
 python3 scripts/exam_tool.py demo --workspace ../xizong-demo
 ```
 
-这会生成明确虚构的 10 题工程演示，包含全部五类题型。打开 `../xizong-demo/output/mock-exams/demo/export/questions.html` 查看试题；同目录 answers.html 是答案，coverage.html 是覆盖与审核表。也同时生成 Markdown。演示默认是待复核草稿，不能作为真实医学练习。
+这会生成明确虚构的 10 题工程演示，启用 artifact_reuse，包含全部五类题型、六模块结构化产物、A2+A1 跨模块引用和空作答模板。打开 `../xizong-demo/output/mock-exams/demo/export/questions.html` 查看试题；同目录 answers.html 是答案，coverage.html 是覆盖与审核表。也同时生成 Markdown。演示默认是待复核草稿，不能作为真实医学练习。
 
 ## 建立真实单元
 
@@ -38,7 +38,7 @@ python3 scripts/exam_tool.py init --workspace ../my-xizong
 python3 scripts/exam_tool.py bridge --project ../my-xizong/project.json --unit U001 --out output/mock-exams/r01/upstream-bridge.json
 ```
 
-桥接清单预置六个原模块的规则引用。处理真实真题时，再把总调度产出的路由记录和实际模块产物追加到清单；将其 SHA-256 填入题库 `integration.bridge_sha256`。每道题在 `upstream_refs` 中填写对应模块和 `transfer_goal`。桥接只约束设计来源，题目答案仍需引用讲义/教材索引块。
+桥接清单预置六个原模块的规则引用与文件哈希，schema_version=2。默认 rules_only；有实际学习产物时按 upstream-bridge.md 切换 artifact_reuse，登记产物、原始输入哈希、条目和知识映射。处理真实真题时，再把总调度产出的路由记录和实际模块产物追加到清单；将其 SHA-256 填入题库 `integration.bridge_sha256`。每道题在 `upstream_refs` 中填写对应模块和 `transfer_goal`。桥接只约束设计来源，题目答案仍需引用讲义/教材索引块。
 
 ```bash
 python3 scripts/exam_tool.py index --project ../my-xizong/project.json --unit U001 --out output/mock-exams/r01/source-index.json
@@ -71,3 +71,27 @@ python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index 
 ## 原六模块
 
 如需原有概念簇或整卷真题分析，直接向统一入口提出请求。先遵守 integration.md，再按路由读取原文；作者电脑路径、历史年份、固定题数不适用于你的工作目录。
+
+## 作答反馈与再练
+
+以下路径沿用前文 r01。生成空作答模板：
+
+```bash
+python3 scripts/exam_tool.py attempt-template --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --out output/mock-exams/r01/attempt.template.json
+```
+
+填写实际记录后另存 attempt.json；不要把标准答案填入模板冒充作答。示例格式和错因确认要求见 learning-loop.md。
+
+```bash
+python3 scripts/exam_tool.py feedback --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --attempt ../my-xizong/output/mock-exams/r01/attempt.json --out output/mock-exams/r01/feedback-01
+```
+
+没有 --reviews 时按草稿答案暂定比对；追加 `--reviews ../my-xizong/output/mock-exams/r01/reviews.json` 才会执行已复核题库门槛。生成 feedback.json 和 remediation-plan.json，后者用于指导 AI 在 r02 命题，不是自动生成的题库。新题通过 remediation_refs 绑定计划目标。
+
+## 回归测试
+
+```bash
+python3 -B tests/test_exam_tool.py
+```
+
+测试使用临时目录和明确虚构数据，不更新真实学习记录。

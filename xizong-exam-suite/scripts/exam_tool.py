@@ -16,6 +16,9 @@ import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
+from learning_bridge import build_bridge, validate_bridge, validate_question_links, strings
+from learning_loop import attempt_template, assess, validate_remediation
+
 ROOT = Path(__file__).resolve().parents[1]
 TYPES = {"A1", "A2", "A3A4", "B", "X"}
 COGNITIVE = {"memory", "understanding", "application", "integration"}
@@ -223,26 +226,7 @@ def bridge_template(project_path, unit_id, destination):
     cfg = project.get("upstream_integration", {})
     modules = cfg.get("modules", sorted(UPSTREAM_MODULES))
     require(set(modules) == UPSTREAM_MODULES, "upstream_integration.modules 必须登记全部六个模块")
-    builtins = [
-        ("upstream-dispatcher", "dispatcher", "routing_rules", "references/upstream/西综总调度-Skill/SKILL.md"),
-        ("upstream-a1", "a1_concept", "concept_cluster_rules", "references/upstream/西综A1概念簇-Skill/SKILL.md"),
-        ("upstream-a2", "a2_case_summary", "case_summary_rules", "references/upstream/西综A2病例摘要-Skill/SKILL.md"),
-        ("upstream-case", "case_workflow", "case_workflow_rules", "references/upstream/西综病例-Skill/SKILL.md"),
-        ("upstream-b", "b_matching", "matching_rules", "references/upstream/西综B型配伍-Skill/SKILL.md"),
-        ("upstream-x", "x_multi", "multi_select_rules", "references/upstream/西综X型多选-Skill/SKILL.md"),
-    ]
-    value = {
-        "schema_version": 1,
-        "unit_id": unit_id,
-        "unit_title": unit["title"],
-        "policy": "design_only",
-        "modules": list(modules),
-        "question_type_map": TYPE_MODULE,
-        "routing_refs": ["upstream-dispatcher"],
-        "artifacts": [{"id": aid, "module": module, "kind": kind, "source_ref": source_ref, "role": "built_in_reference"}
-                       for aid, module, kind, source_ref in builtins],
-        "instructions": "填写实际上游模块产出的 artifact；它们只提供题型、认知、错误模式和病例链设计参考，医学事实仍必须引用 source-index 的 lecture/reference 块。",
-    }
+    value = build_bridge(ROOT, unit, cfg.get("reuse_mode", "rules_only"))
     dump(destination, value)
     return value
 
@@ -284,52 +268,9 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
 
     integration_cfg = project.get("upstream_integration", {})
     integration_enabled = integration_cfg.get("enabled", False) is True
-    bridge = None
-    artifacts = {}
+    artifacts, reuse_mode, reuse_trace = {}, "rules_only", []
     if integration_enabled:
-        configured_modules = integration_cfg.get("modules", [])
-        check(integration_cfg.get("policy") == "design_only", "上游整合 policy 必须为 design_only")
-        check(set(configured_modules) == UPSTREAM_MODULES, "上游整合必须登记全部六个模块")
-        integration = bank.get("integration", {})
-        check(integration.get("policy") == "design_only", "题库 integration.policy 必须为 design_only")
-        bridge_raw = integration_cfg.get("bridge_path", "upstream-bridge.json")
-        bridge_path = Path(bridge_raw)
-        bridge_path = bridge_path.resolve() if bridge_path.is_absolute() else (Path(bank_path).resolve().parent / bridge_path).resolve()
-        check(bridge_path.is_file(), "缺少 upstream-bridge.json，请先运行 bridge 并填写上游产物")
-        if bridge_path.is_file():
-            try:
-                bridge = load(bridge_path)
-                raw_artifacts = bridge.get("artifacts", [])
-                artifacts = {a.get("id"): a for a in raw_artifacts if isinstance(a, dict)}
-                check(bridge.get("schema_version") == 1, "上游桥接清单 schema_version 无效")
-                check(bridge.get("unit_id") == bank.get("unit_id"), "上游桥接清单单元不一致")
-                check(bridge.get("policy") == "design_only", "上游桥接清单 policy 必须为 design_only")
-                check(set(bridge.get("modules", [])) == UPSTREAM_MODULES, "上游桥接清单未登记全部六个模块")
-                check(integration.get("bridge_sha256") == digest(bridge_path), "上游桥接清单已改变，需更新题库桥接哈希")
-                check(isinstance(bridge.get("routing_refs"), list) and bool(bridge["routing_refs"]), "桥接清单缺少总调度 routing_refs")
-                artifact_list = bridge.get("artifacts", [])
-                check(isinstance(artifact_list, list), "上游 artifacts 必须为数组")
-                artifact_list = artifact_list if isinstance(artifact_list, list) else []
-                check(all(isinstance(a, dict) for a in artifact_list), "上游 artifact 必须为对象")
-                artifact_list = [a for a in artifact_list if isinstance(a, dict)]
-                artifact_ids = [a.get("id") for a in artifact_list]
-                check(len(artifact_ids) == len(set(artifact_ids)), "上游 artifact ID 重复")
-                for artifact in artifact_list:
-                    aid = artifact.get("id")
-                    check(nonempty(aid), "上游 artifact ID 为空")
-                    check(artifact.get("module") in UPSTREAM_MODULES, f"上游 artifact 模块无效：{aid}")
-                    check(nonempty(artifact.get("kind")), f"上游 artifact 缺少 kind：{aid}")
-                    if artifact.get("path"):
-                        artifact_path = resolve_source(project_path, artifact["path"])
-                        check(artifact_path.is_file(), f"上游 artifact 文件不存在：{aid}")
-                        if artifact_path.is_file() and artifact.get("sha256"):
-                            check(digest(artifact_path) == artifact["sha256"], f"上游 artifact 文件已改变：{aid}")
-                dispatcher_refs = integration.get("dispatcher_refs", [])
-                check(isinstance(dispatcher_refs, list) and bool(dispatcher_refs), "题库缺少 dispatcher_refs")
-                for ref in dispatcher_refs:
-                    check(ref in artifacts and artifacts[ref].get("module") == "dispatcher", f"dispatcher 引用无效：{ref}")
-            except (OSError, ValueError, KeyError, TypeError):
-                check(False, "上游桥接清单无法读取")
+        artifacts, reuse_mode = validate_bridge(project_path, bank_path, project, bank, ROOT, check)
 
     def evidence_valid(evidence, label):
         check(isinstance(evidence, list) and bool(evidence), f"{label} 缺少来源摘录")
@@ -349,6 +290,8 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
     check(len(points) == len(bank.get("points", [])), "考点 ID 重复")
     check(bool(points), "没有考点清单")
     for pid, point in points.items():
+        if "knowledge_ids" in point:
+            check(strings(point["knowledge_ids"]), f"{pid} knowledge_ids 必须为非空且唯一的文本数组")
         check(nonempty(point.get("label")) and nonempty(point.get("objective")), f"{pid} 缺少名称或学习目标")
         check(point.get("status") in {"ready", "hold"}, f"{pid} 考点状态无效")
         check(all(b in blocks for b in point.get("source_blocks", [])), f"{pid} 未知来源块")
@@ -393,21 +336,7 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
         check(type(q.get("high_risk")) is bool, f"{qid} 必须明确 high_risk")
         check(q.get("cognitive_level") in COGNITIVE, f"{qid} 认知层次无效")
         if integration_enabled:
-            refs = q.get("upstream_refs", [])
-            if integration_cfg.get("require_question_links", True):
-                check(isinstance(refs, list) and bool(refs), f"{qid} 缺少上游模块引用")
-            linked_modules = set()
-            for ref in refs if isinstance(refs, list) else []:
-                aid = ref.get("artifact_id")
-                module = ref.get("module")
-                check(module in UPSTREAM_MODULES, f"{qid} 上游模块无效：{module}")
-                check(nonempty(aid) and aid in artifacts, f"{qid} 上游 artifact 不存在：{aid}")
-                if aid in artifacts:
-                    check(artifacts[aid].get("module") == module, f"{qid} 上游模块与 artifact 不一致：{aid}")
-                check(nonempty(ref.get("transfer_goal")), f"{qid} 上游引用缺少 transfer_goal")
-                linked_modules.add(module)
-            expected_module = TYPE_MODULE.get(typ)
-            check(expected_module in linked_modules, f"{qid} 未链接其题型对应模块：{expected_module}")
+            reuse_trace.extend(validate_question_links(q, artifacts, reuse_mode, check, profile))
         difficulty = q.get("difficulty", {})
         check(difficulty.get("level") in {"easy", "medium", "hard"} and nonempty(difficulty.get("reason")), f"{qid} 难度目标/理由缺失")
         pids = q.get("point_ids", [])
@@ -482,6 +411,8 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
                 if SequenceMatcher(None, fp, oldtext).ratio() >= 0.88:
                     warn(f"history:{Path(historical_path).name}:{oldq.get('id')}:{qid}", f"{qid} 接近历史题 {oldq.get('id')}，请确认训练目的")
 
+    validate_remediation(project_path, bank, check)
+
     if final:
         check(reviews_path is not None, "已审核版需要 reviews.json；缺少独立复答时仅可导出草稿")
         if reviews_path:
@@ -515,13 +446,16 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
     module_counts = Counter()
     if integration_enabled:
         for q in questions:
-            for ref in q.get("upstream_refs", []):
-                module_counts[ref.get("module")] += 1
+            refs = q.get("upstream_refs", [])
+            for ref in refs if isinstance(refs, list) else []:
+                if isinstance(ref, dict) and isinstance(ref.get("module"), str):
+                    module_counts[ref["module"]] += 1
     return {"ok": not errors, "stage": "final" if final else "draft", "errors": errors,
             "warnings": warnings, "question_count": len(questions), "type_counts": dict(actual_types),
             "coverage": [{"point_id": pid, "label": p.get("label"), "status": p.get("status"),
                           "count": tested[pid], "hold_reason": p.get("hold_reason", "")} for pid, p in points.items()],
-            "integration": {"enabled": integration_enabled, "module_counts": dict(module_counts)},
+            "integration": {"enabled": integration_enabled, "reuse_mode": reuse_mode,
+                            "module_counts": dict(module_counts), "reused_item_count": len(reuse_trace), "trace": reuse_trace},
             "bank_sha256": digest(bank_path), "source_index_sha256": digest(index_path),
             "limits": "检查文件绑定、结构和记录，不证明医学正确或复核记录真实。"}
 
@@ -628,6 +562,8 @@ def render(project_path, index_path, bank_path, destination, stage="draft", revi
                 ("table", (["考点", "名称", "状态", "题数", "搁置原因"], [[x["point_id"], x["label"], x["status"], x["count"], x["hold_reason"]] for x in report["coverage"]]))]
     if report.get("integration", {}).get("enabled"):
         coverage.append(("heading", "上游模块追踪"))
+        coverage.append(("p", "复用模式：" + report["integration"]["reuse_mode"] + "；实际条目引用数：" + str(report["integration"]["reused_item_count"])))
+        coverage.append(("table", (["题目", "模块", "产物/条目", "稳定知识点", "设计转化"], [[t["question_id"], t["module"], t["artifact_id"] + "/" + t["item_id"], t["knowledge_id"], t["transfer_goal"]] for t in report["integration"]["trace"]])))
         coverage.append(("p", "上游模块仅作为题型、认知和错误模式的设计参考；医学事实仍以题目 evidence 为准。"))
         coverage.append(("table", (["模块", "题目引用次数"], [[k, v] for k, v in sorted(report["integration"]["module_counts"].items())])))
     if reviews_path and stage == "final":
@@ -664,10 +600,30 @@ def initialize(workspace, demo=False):
         bank = load(workspace / "bank.json")
         bank["source_index_sha256"] = digest(index_path)
         bank_path = workspace / "output/mock-exams/demo/bank.json"
+        bridge_path = bank_path.parent / "upstream-bridge.json"
+        bridge = build_bridge(ROOT, get_unit(load(project_path), "DEMO"), "artifact_reuse")
+        shutil.copytree(ROOT / "assets/demo/learning", workspace / "learning")
+        for module in sorted(UPSTREAM_MODULES):
+            artifact_path = workspace / "learning" / (module + ".json")
+            output = load(artifact_path)
+            for origin in output["origins"]:
+                origin["sha256"] = digest(resolve_source(project_path, origin["path"]))
+            artifact_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            bridge["artifacts"].append({"id": "demo-" + module, "module": module, "kind": "learning_design",
+                                        "role": "module_output", "path": "learning/" + module + ".json",
+                                        "sha256": digest(artifact_path),
+                                        "point_map": {i["id"]: i.pop("demo_point_ids") for i in output["items"]}})
+            artifact_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            bridge["artifacts"][-1]["sha256"] = digest(artifact_path)
+        bridge["routing_refs"] = ["demo-dispatcher"]
+        dump(bridge_path, bridge)
+        bank["integration"] = {"policy": "design_only", "reuse_mode": "artifact_reuse",
+                               "bridge_sha256": digest(bridge_path), "dispatcher_refs": ["demo-dispatcher"]}
         dump(bank_path, bank)
         (workspace / "bank.json").unlink()
         blind(project_path, index_path, bank_path, workspace / "output/mock-exams/demo/blind")
         render(project_path, index_path, bank_path, workspace / "output/mock-exams/demo/export")
+        dump(bank_path.parent / "attempt.template.json", attempt_template(bank_path, index_path))
     else:
         shutil.copyfile(ROOT / "assets/project.template.json", workspace / "project.json")
         (workspace / "materials").mkdir()
@@ -688,16 +644,19 @@ def main():
     p.add_argument("--project", required=True)
     p.add_argument("--unit", required=True)
     p.add_argument("--out", required=True)
-    for name in ("validate", "blind", "render"):
+    for name in ("validate", "blind", "render", "attempt-template", "feedback"):
         p = commands.add_parser(name)
         p.add_argument("--project", required=True)
         p.add_argument("--index", required=True)
         p.add_argument("--bank", required=True)
-        if name != "blind":
+        if name in {"validate", "render"}:
             p.add_argument("--stage", choices=("draft", "final"), default="draft")
-            p.add_argument("--reviews")
             p.add_argument("--history", action="append", default=[])
-        if name in {"blind", "render"}:
+        if name in {"validate", "render", "feedback"}:
+            p.add_argument("--reviews")
+        if name == "feedback":
+            p.add_argument("--attempt", required=True)
+        if name in {"blind", "render", "attempt-template", "feedback"}:
             p.add_argument("--out", required=True)
     args = parser.parse_args()
     try:
@@ -713,6 +672,25 @@ def main():
             result = {"bridge": str(out), "sha256": digest(out), "modules": bridge["modules"]}
         elif args.command == "validate":
             result = validate(args.project, args.index, args.bank, args.reviews, args.stage == "final", args.history)
+        elif args.command in {"attempt-template", "feedback"}:
+            reviews = getattr(args, "reviews", None)
+            require(getattr(args, "stage", "draft") != "final" or reviews is not None, "final 反馈需提供有效 reviews")
+            report = validate(args.project, args.index, args.bank, reviews, reviews is not None)
+            require(report["ok"], "请先修复题库：" + "; ".join(report["errors"]))
+            out = output_path(args.project, args.out)
+            if args.command == "attempt-template":
+                dump(out, attempt_template(args.bank, args.index))
+                result = {"attempt_template": str(out)}
+            else:
+                require(not out.exists(), "反馈目录已存在，请使用新目录")
+                feedback, plan = assess(args.bank, args.index, args.attempt, reviews is not None)
+                if reviews is not None:
+                    for document in (feedback, plan):
+                        document["bindings"]["reviews_path"] = str(Path(reviews).resolve())
+                        document["bindings"]["reviews_sha256"] = digest(reviews)
+                dump(out / "feedback.json", feedback)
+                dump(out / "remediation-plan.json", plan)
+                result = {"output_directory": str(out), "grading_status": feedback["grading_status"], "summary": feedback["summary"]}
         elif args.command == "blind":
             out = output_path(args.project, args.out)
             blind(args.project, args.index, args.bank, out)

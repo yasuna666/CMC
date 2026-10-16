@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "module": "x_multi",
+  "origins": [
+    {
+      "path": "lecture.md",
+      "sha256": "03f2c1c182e7ea305acffb485d79660149e097e27851a62cac8d027aa060dbb9",
+      "locator": "四条完整规则；虚构工程材料"
+    }
+  ],
+  "items": [
+    {
+      "id": "item-K1",
+      "knowledge_id": "DEMO-K1",
+      "label": "甲通道",
+      "demo_point_ids": [
+        "K1"
+      ],
+      "payload": {
+        "propositions": [
+          "只单独转运 M，沿 M 梯度，不直接消耗 E"
+        ],
+        "qualifiers": [
+          "M 两侧浓度相等时无净转运"
+        ],
+        "error_patterns": [
+          "逐项核对对象与条件，不能根据其他选项预设本项正误"
+        ]
+      }
+    },
+    {
+      "id": "item-K2",
+      "knowledge_id": "DEMO-K2",
+      "label": "乙泵",
+      "demo_point_ids": [
+        "K2"
+      ],
+      "payload": {
+        "propositions": [
+          "只单独转运 M，可逆 M 梯度，直接消耗 E"
+        ],
+        "qualifiers": [
+          "E 耗尽立即停止"
+        ],
+        "error_patterns": [
+          "逐项核对对象与条件，不能根据其他选项预设本项正误"
+        ]
+      }
+    },
+    {
+      "id": "item-K3",
+      "knowledge_id": "DEMO-K3",
+      "label": "丙载体",
+      "demo_point_ids": [
+        "K3"
+      ],
+      "payload": {
+        "propositions": [
+          "N 与 M 同向共同转运，依赖 M 梯度，不直接消耗 E"
+        ],
+        "qualifiers": [
+          "M 梯度消失立即停止"
+        ],
+        "error_patterns": [
+          "逐项核对对象与条件，不能根据其他选项预设本项正误"
+        ]
+      }
+    },
+    {
+      "id": "item-K4",
+      "knowledge_id": "DEMO-K4",
+      "label": "丁门",
+      "demo_point_ids": [
+        "K4"
+      ],
+      "payload": {
+        "propositions": [
+          "只转运 P，当且仅当 R 出现时开放，不直接消耗 E"
+        ],
+        "qualifiers": [
+          "无 R 时 P 不能通过"
+        ],
+        "error_patterns": [
+          "逐项核对对象与条件，不能根据其他选项预设本项正误"
+        ]
+      }
+    }
+  ]
+}

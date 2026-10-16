@@ -48,5 +48,19 @@
         "difficulty_counts": {}
       }
     }
-  ]
+  ],
+  "upstream_integration": {
+    "enabled": true,
+    "policy": "design_only",
+    "modules": [
+      "dispatcher",
+      "a1_concept",
+      "a2_case_summary",
+      "case_workflow",
+      "b_matching",
+      "x_multi"
+    ],
+    "bridge_path": "upstream-bridge.json",
+    "reuse_mode": "artifact_reuse"
+  }
 }
