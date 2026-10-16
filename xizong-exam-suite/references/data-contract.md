@@ -4,7 +4,9 @@
 
 以 assets/project.template.json 为起点。Python 新工具读取 JSON，不依赖 PyYAML；原真题模块仍用原 project.yaml。相对来源路径基于 project.json 所在目录。
 
-- schema_version: 1；mode: unit_practice；scope_policy: lecture_only。
+- schema_version: 1；mode 为 `unit_practice`、`study_guide`、`review_book` 或 `practice_only`；scope_policy: lecture_only。
+- layout_profile、pdf.cjk_font、pdf.geometry：控制文档布局和 PDF 导出；缺少 xelatex 时只能生成 Markdown/HTML。
+- variant_policy：记录递进阶段 `basic`、`variant`、`integrated`、`challenge` 及最少阶段数。
 - purpose: practice。
 - target_year、official_alignment_verified：记录实际情况。本版发布单元练习，不直接生成宣称符合官方计分的整卷。
 - exam_profile：option_count、x_min_correct、x_max_correct、x_scoring=exact_set、b_reuse_allowed。
@@ -15,13 +17,13 @@
 
 ## source-index.json
 
-由 index 命令生成，不手改：包含 project_sha256、unit_id、sources（文件哈希）、blocks（id、source_id、page、section、locator、text）。题库必须引用这个索引中真实存在的块。资料变更须重建索引与复核。
+由 index 命令生成，不手改：包含 unit_id、sources（路径、版本、角色）、blocks（id、source_id、page、section、locator、text）。题库必须引用这个索引中真实存在的块。资料变更须重建索引和题库；校验器会重新读取来源并比较索引内容。
 
 ## bank.json
 
 以 assets/bank.template.json 开始。空模板不能通过校验；需要 AI 根据真实讲义填写。
 
-顶层：schema_version=1、unit_id、title、source_type=generated_mock、purpose、source_index_sha256、source_issues、integration、points、blueprint、groups、questions。启用桥接时 integration 至少含 `policy=design_only`、`bridge_sha256` 和 `dispatcher_refs`。
+顶层：schema_version=1、unit_id、title、source_type=generated_mock、purpose、source_issues、integration、points、blueprint、groups、variant_sets、questions。启用桥接时 integration 至少含 `policy=design_only` 和 `dispatcher_refs`。
 
 points 每条：knowledge_ids（实际产物复用/再练需跨轮稳定知识 ID 数组）、id、label、objective、status（ready/hold）、source_blocks（块 ID 列表）、hold_reason。ready 至少一个 lecture 来源；hold 有原因，不能用于出题。
 
@@ -42,6 +44,8 @@ questions 每条：
 | point_ids | 第一个为主考点，其余为次考点 |
 | upstream_refs | 启用桥接时至少一条；每条含 artifact_id、module、transfer_goal；module_output 还需非空 item_ids，且必须包含题型对应模块 |
 | cognitive_level | memory/understanding/application/integration |
+| variant_set_id | 可选；递进式变式题组 ID |
+| transfer_stage | `basic`/`variant`/`integrated`/`challenge`；默认 basic |
 | difficulty | level（easy/medium/hard）和 reason，不是实测难度 |
 | high_risk | 必须显式 true/false，不可遗漏 |
 | explanation | 完整推导；不能只有答案复述 |
@@ -55,24 +59,24 @@ questions 每条：
 
 blind 命令生成 reviews.template.json，需真实审题后另存 reviews.json。不要让自动填默认通过。
 
-顶层：schema_version、unit_id、bank_sha256、source_index_sha256、reviewer_mode、reviewer、acknowledged_warnings、checks。
+顶层：schema_version、unit_id、bank_path、source_index_path、reviewer_mode、reviewer、acknowledged_warnings、checks。
 
 reviewer_mode 为 independent_ai/human/self_review；只有前两种可用于 final。reviewer 填实际复答者或上下文标识。checks 按 question_id 一一对应：verdict、source_status、item_status、medical_status、medical_reference_blocks、blind_answer、blind_reason、notes。具体通过条件见 quality-review.md。
 
-acknowledged_warnings 为“警告 code: 实际接受理由”的对象。错误不能用该字段绕过。题库变化不能只换哈希沿用旧结论。
+acknowledged_warnings 为“警告 code: 实际接受理由”的对象。错误不能用该字段绕过。复核记录必须绑定实际题库和索引路径，修改内容后重新生成盲答包。
 
 ## 版本与路径
 
-默认每轮创建 output/mock-exams/下的新运行目录。所有脚本拒绝覆盖已有文件/导出目录；修改后使用 r02、r03 等新目录。哈希以 UTF-8 文件实际字节计算，格式化 JSON 也会让复核失效，这是有意设计。
+默认每轮创建 output/mock-exams/下的新运行目录。所有脚本拒绝覆盖已有文件/导出目录；修改后使用 r02、r03 等新目录。路径和版本由用户维护，脚本不生成或校验内容摘要。
 
 校验器不判断模型是否真做过医学核对，也不能证明复答人未看到答案；这些必须由工作流程和真实执行记录保证。
 
 ## 桥接 v2 与学习闭环
 
 - project.upstream_integration 新增 reuse_mode=rules_only/artifact_reuse；bank.integration 和 bridge 的 reuse_mode 必须一致。内置规则 ID 以 bridge 实际输出为准，默认 rules-dispatcher。
-- bridge.schema_version=2；question_type_map 必须精确匹配五类题型，routing_refs 必须与 dispatcher_refs 一致且均为有效调度器引用。全部 artifacts 的文件哈希强制核对。
+- bridge.schema_version=2；question_type_map 必须精确匹配五类题型，routing_refs 必须与 dispatcher_refs 一致且均为有效调度器引用。所有 artifacts 和 origins 必须指向存在的文件并有定位。
 - role=module_output 的 path 指向结构化 JSON，要求 schema_version=1、module、origins、items；每个条目通过 point_map 映射本轮考点。格式与迁移见 upstream-bridge.md，模块 payload 见 module-adapters.md。
 - artifact_reuse 每题主考点至少复用其题型模块的一条真实条目；可附加其他模块，重复 artifact 引用应合并 item_ids。
-- attempts：由 attempt-template 生成。schema_version=1、unit_id、bank_sha256、source_index_sha256、attempt_id、learner_id、completed_at（含时区）、record_type、responses。selected=null 与 [] 分别表示未作答和提交空答案。
+- attempts：由 attempt-template 生成。schema_version=1、unit_id、bank_path、source_index_path、attempt_id、learner_id、completed_at（含时区）、record_type、responses。selected=null 与 [] 分别表示未作答和提交空答案。
 - feedback：包含逐题选项差异、暂定/已复核状态、真实错因等级及本次统计；不输出官方分数、掌握率或自动累加历史。
-- remediation-plan：包含原题、原作答及索引路径/哈希、稳定知识 ID、模块条目和待补学目标。新 bank.remediation 绑定 plan_path（相对项目目录）与 plan_sha256；新题 remediation_refs 含 target_id、variation_note。详情见 learning-loop.md。
+- remediation-plan：包含原题、原作答及索引路径、稳定知识 ID、模块条目和待补学目标。新 bank.remediation 绑定 plan_path（相对项目目录）；新题 remediation_refs 含 target_id、variation_note。详情见 learning-loop.md。

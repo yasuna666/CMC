@@ -4,7 +4,6 @@
   "origins": [
     {
       "path": "learning/实际概念簇.md",
-      "sha256": "填写实际文件 SHA-256",
       "locator": "概念对比与干扰预警"
     }
   ],

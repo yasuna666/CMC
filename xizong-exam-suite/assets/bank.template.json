@@ -4,11 +4,9 @@
   "title": "单元模拟练习",
   "source_type": "generated_mock",
   "purpose": "practice",
-  "source_index_sha256": "",
   "source_issues": [],
   "integration": {
     "policy": "design_only",
-    "bridge_sha256": "",
     "dispatcher_refs": [
       "rules-dispatcher"
     ],
@@ -17,5 +15,6 @@
   "points": [],
   "blueprint": [],
   "groups": [],
+  "variant_sets": [],
   "questions": []
 }

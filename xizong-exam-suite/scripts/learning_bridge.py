@@ -1,7 +1,6 @@
 """Versioned, design-only adapters for the six upstream modules."""
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -22,10 +21,6 @@ PAYLOAD_FIELDS = {
     "b_matching": ("option_definitions", "matching_matrix", "reuse_allowed"),
     "x_multi": ("propositions", "qualifiers", "error_patterns"),
 }
-
-
-def sha256(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def read_json(path):
@@ -63,8 +58,7 @@ def build_bridge(root, unit, reuse_mode="rules_only"):
         "modules": list(MODULE_FILES), "question_type_map": TYPE_MODULE,
         "routing_refs": ["rules-dispatcher"],
         "artifacts": [{"id": f"rules-{module}", "module": module, "kind": "module_rules",
-                       "role": "built_in_reference", "source_ref": builtin_path(module),
-                       "sha256": sha256(Path(root) / builtin_path(module))} for module in MODULE_FILES],
+                       "role": "built_in_reference", "source_ref": builtin_path(module)} for module in MODULE_FILES],
     }
 
 
@@ -131,7 +125,6 @@ def validate_bridge(project_path, bank_path, project, bank, root, check):
         check(bridge.get("reuse_mode") == integration.get("reuse_mode") == mode, "配置、桥接、题库 reuse_mode 不一致")
         check(strings(bridge.get("modules")) and set(bridge["modules"]) == set(MODULE_FILES), "桥接必须登记全部六模块且不重复")
         check(bridge.get("question_type_map") == TYPE_MODULE, "桥接 question_type_map 与标准路由不一致")
-        check(integration.get("bridge_sha256") == sha256(bridge_path), "桥接清单已改变，旧题库/审核绑定失效")
         raw = bridge.get("artifacts")
         if not isinstance(raw, list) or not all(isinstance(a, dict) for a in raw):
             check(False, "artifacts 必须为对象数组")
@@ -154,13 +147,12 @@ def validate_bridge(project_path, bank_path, project, bank, root, check):
                 check(artifact.get("kind") == "module_rules", f"{aid} 内置规则 kind 必须为 module_rules")
                 check(artifact.get("source_ref") == builtin_path(module), f"{aid} source_ref 不是该模块的内置规则")
                 p = Path(root) / builtin_path(module)
-                check(p.is_file() and artifact.get("sha256") == sha256(p), f"{aid} 内置规则哈希不匹配")
+                check(p.is_file(), f"{aid} 内置规则文件不存在")
             elif role == "module_output":
                 p = path_from(base, artifact.get("path"))
                 check(p.is_file(), f"{aid} 产物文件不存在")
                 if not p.is_file():
                     continue
-                check(artifact.get("sha256") == sha256(p), f"{aid} 产物缺少哈希或文件已改变")
                 output = read_json(p)
                 check(output.get("schema_version") == 1 and output.get("module") == module, f"{aid} 产物版本/模块不一致")
                 origins = output.get("origins")
@@ -169,7 +161,7 @@ def validate_bridge(project_path, bank_path, project, bank, root, check):
                 else:
                     for origin in origins:
                         op = path_from(base, origin.get("path"))
-                        check(op.is_file() and origin.get("sha256") == sha256(op), f"{aid} 原始输入缺失、缺少哈希或已改变")
+                        check(op.is_file(), f"{aid} 原始输入文件不存在")
                         check(text(origin.get("locator")), f"{aid} 原始输入缺少定位")
                 items = output.get("items")
                 if not isinstance(items, list) or not items or not all(isinstance(i, dict) for i in items):

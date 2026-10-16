@@ -6,7 +6,7 @@
 
 固定提交：3ba3c42ce74c66981044e2a32ce1b4b10241b488（2026-04-03）。
 
-references/upstream/ 保留此次获取到的全部公开仓库文件（不含 .git 内部目录）：六个技能、共享规范、错误库、模板、说明、辅助脚本。哈希见 assets/upstream-manifest.json。
+references/upstream/ 保留此次获取到的全部公开仓库文件（不含 .git 内部目录）：六个技能、共享规范、错误库、模板、说明、辅助脚本。来源与文件路径见 assets/upstream-manifest.json。
 
 新增统一入口、讲义命题与审核流程、配置/数据约定、索引、校验、盲答交接、Markdown/HTML 导出及验证记录。
 

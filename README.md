@@ -32,6 +32,8 @@
 |---|---|---|
 | 整理整份真题 | 识别题型，按需路由到原模块 | 真题分类、概念簇或病例工作流 |
 | 按讲义进行单元练习 | 提取考点、安排题型，再生成模拟题 | 试题、逐项解析、来源定位、覆盖表 |
+| 整理单元讲义或复习全书 | 按考点组织知识、典型题和递进题组 | study-guide 或 review-book 文档 |
+| 只要纯练习材料 | 隐藏答案与解析，仅输出作答文档 | practice-only 试题与覆盖表 |
 | 利用已有复习积累出题 | 引用实际概念对比、鉴别矩阵和决策节点 | 可追溯到知识条目的模拟题 |
 | 检查题目质量 | 结构校验、来源回查、独立复答 | 待审草稿或流程复核完成的练习版 |
 | 批改自己的作答 | 对照绑定版本的题库进行选项集合比对 | 正误、漏选/多选、待确认错因 |
@@ -39,7 +41,7 @@
 
 支持 A1、A2、A3/A4 共用题干题组、B 型配伍和 X 型多选。题数按**计分小题**计算：一组共用材料下有 3 个问题，就计 3 题。
 
-命令行工具当前发布的是 `unit_practice` 单元练习。指定某年仿真卷时，需先实际核对该年的官方要求，不能将默认练习配置直接称为官方卷型。
+命令行工具支持 `unit_practice`、`study_guide`、`review_book` 和 `practice_only` 四种文档模式。指定某年仿真卷时，需先实际核对该年的官方要求，不能将默认练习配置直接称为官方卷型。
 
 ## 六个模块如何协作
 
@@ -61,7 +63,7 @@
 | 模式 | 何时使用 | 需要什么 |
 |---|---|---|
 | `rules_only` | 第一次按讲义出题，暂时没有结构化学习产物 | 模块规则引用与本轮讲义；新项目默认此模式 |
-| `artifact_reuse` | 要具体复用概念簇、病例工作流或本轮提炼的条目 | 总调度计划、实际条目、知识映射及文件哈希 |
+| `artifact_reuse` | 要具体复用概念簇、病例工作流或本轮提炼的条目 | 总调度计划、实际条目、知识映射及文件路径与版本 |
 
 同一知识使用稳定的 `knowledge_id`，贯穿学习条目、本轮考点和再练目标。`point_id` 是当前题库的考点编号，`item_id` 是某份产物内的条目编号；三者有不同用途。
 
@@ -91,7 +93,7 @@
 
 以下命令使用 `python3`；若你的环境使用 `python` 或 `py -3`，替换命令前缀即可。普通流程主要使用 Python 标准库，不需要配置模型 API Key。
 
-只有对话能力、没有文件与命令能力时，可以让 AI 按流程帮助整理或写草稿，但不能声称已完成脚本校验、文件哈希绑定或本地导出。
+只有对话能力、没有文件与命令能力时，可以让 AI 按流程帮助整理或写草稿，但不能声称已完成脚本校验、文件路径绑定或本地导出。
 
 ### 3. 准备自己的资料
 
@@ -156,7 +158,7 @@ python3 scripts/exam_tool.py index --project ../my-xizong/project.json --unit U0
 
 这一步由 AI 完成，**没有自动命题 CLI 命令**。可以使用：
 
-> 请读取 project.json、r01 的来源索引和桥接清单，按 assets/bank.template.json 及 references/data-contract.md 生成 bank.json。先建立 ready/hold 考点清单，再按 blueprint 分配每个计分小题。每题填写对应模块引用、答案、逐项解析和真实 evidence。使用实际文件的 SHA-256 完成索引与桥接绑定。资料不足的考点标为 hold，不为凑数编造依据。
+> 请读取 project.json、r01 的来源索引和桥接清单，按 assets/bank.template.json 及 references/data-contract.md 生成 bank.json。先建立 ready/hold 考点清单，再按 blueprint 分配每个计分小题。每题填写对应模块引用、答案、逐项解析和真实 evidence。使用实际文件路径、版本和定位完成索引与桥接登记。资料不足的考点标为 hold，不为凑数编造依据。
 
 将实际完成的题库保存到 `../my-xizong/output/mock-exams/r01/bank.json`。空白题库模板不能通过校验；需要根据真实讲义完整填写。
 
@@ -164,7 +166,9 @@ python3 scripts/exam_tool.py index --project ../my-xizong/project.json --unit U0
 
 ```bash
 python3 scripts/exam_tool.py validate --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json
+python3 scripts/exam_tool.py doctor
 python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage draft --out output/mock-exams/r01/draft
+python3 scripts/exam_tool.py quality-check --input ../my-xizong/output/mock-exams/r01/draft/questions.md --kind questions
 ```
 
 有错误时先修正再导出。脚本检查引用、结构和版本，不会仅凭字段齐全就证明医学答案正确。
@@ -180,27 +184,27 @@ python3 scripts/exam_tool.py blind --project ../my-xizong/project.json --index .
 没有独立复答条件时保留草稿。当前上下文的自查不能标记为独立复答；诊断阈值、用药、治疗顺序等高风险题还须有实际参考依据。
 
 ```bash
-python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage final --reviews ../my-xizong/output/mock-exams/r01/reviews.json --out output/mock-exams/r01/reviewed
+python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage final --reviews ../my-xizong/output/mock-exams/r01/reviews.json --out output/mock-exams/r01/reviewed --pdf
 ```
 
-`final` 表示完成本工作流的复核门槛，不是官方试题或权威医学认证。修改题库、来源或桥接后应重新校验及复答，不能只替换审核记录里的哈希。
+`final` 表示完成本工作流的复核门槛，不是官方试题或权威医学认证。修改题库、来源或桥接后应重新校验及复答，不能只替换审核记录沿用旧结论。
 
 ## 如何复用已有概念簇和病例工作流
 
 准备好实际笔记后，告诉助手：
 
-> 请在 artifact_reuse 模式下，复用我提供的概念簇和病例工作流。按 module-adapters.md 提取最小结构化条目，保留实际 origins 路径、哈希和定位；统一 knowledge_id，并通过 point_map 映射本轮考点。每道题明确引用 item_ids，说明用了哪一项对比、线索或决策节点。可跨模块复用，答案仍需本轮讲义/教材证据。
+> 请在 artifact_reuse 模式下，复用我提供的概念簇和病例工作流。按 module-adapters.md 提取最小结构化条目，保留实际 origins 路径、版本和定位；统一 knowledge_id，并通过 point_map 映射本轮考点。每道题明确引用 item_ids，说明用了哪一项对比、线索或决策节点。可跨模块复用，答案仍需本轮讲义/教材证据。
 
 具体流程如下：
 
 1. 把已有笔记放在学习项目的 `learning/` 等目录，保留原文件。
 2. 由 AI 按 [`module-output.template.json`](xizong-exam-suite/assets/module-output.template.json) 和[模块适配协议](xizong-exam-suite/references/module-adapters.md)提取条目。已有 Markdown 不会由脚本自动解析成全部条目。
-3. 在产物 `origins` 中登记实际输入文件及哈希；在桥接 `artifacts` 中登记适配 JSON 的路径、哈希和 `point_map`。
+3. 在产物 `origins` 中登记实际输入文件及版本；在桥接 `artifacts` 中登记适配 JSON 的路径、版本和 `point_map`。
 4. 将同一知识的稳定 ID 写入 `bank.points[].knowledge_ids`，用 `upstream_refs.item_ids` 指向实际使用的条目。
 5. project、bridge、bank.integration 的 `reuse_mode` 都设为 `artifact_reuse`，并登记真实总调度计划。若配置改变，重建索引。
 6. 校验、审题后，在 `coverage.html` 中查看逐题模块、产物、条目、知识 ID 与设计转化说明。
 
-没有历史笔记也可以先从本轮讲义提炼真实条目再复用，但应说明这是本轮新建内容。完整结构、哈希绑定和旧版迁移见[桥接协议](xizong-exam-suite/references/upstream-bridge.md)。
+没有历史笔记也可以先从本轮讲义提炼真实条目再复用，但应说明这是本轮新建内容。完整结构、路径登记和旧版迁移见[桥接协议](xizong-exam-suite/references/upstream-bridge.md)。
 
 ## 如何记录作答并定向再练
 
@@ -210,7 +214,7 @@ python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index 
 python3 scripts/exam_tool.py attempt-template --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --out output/mock-exams/r01/attempt.template.json
 ```
 
-填写自己的真实作答，另存为 `r01/attempt.json`。保留模板绑定的题库与索引哈希，补充 `attempt_id`、`learner_id` 和带时区的 `completed_at`，每题保留一条记录。
+填写自己的真实作答，另存为 `r01/attempt.json`。保留模板绑定的题库与索引路径，补充 `attempt_id`、`learner_id` 和带时区的 `completed_at`，每题保留一条记录。
 
 `selected` 的格式示例（仅说明写法，不代表任何题的答案）：
 
@@ -290,6 +294,8 @@ python3 scripts/exam_tool.py feedback --project ../my-xizong/project.json --inde
 | `validate` | 校验题库、桥接、来源和可选审核记录 |
 | `blind` | 生成不含预设答案的复答包与审核模板 |
 | `render` | 导出草稿或通过复核门槛的练习版 |
+| `doctor` | 检查 Python、Pandoc、XeLaTeX、字体和 PDF 工具 |
+| `quality-check` | 检查 Markdown 结构、表格、公式和试题答案泄露 |
 | `attempt-template` | 生成空作答记录模板 |
 | `feedback` | 比对真实作答，生成反馈及再练计划 |
 
@@ -299,15 +305,17 @@ python3 scripts/exam_tool.py feedback --project ../my-xizong/project.json --inde
 
 | 文件 | 用途与阅读者 |
 |---|---|
-| `questions.md / questions.html` | 学习者作答用试卷 |
+| `questions.md / questions.html` | 学习者作答用试卷；practice_only 只保留此类文档 |
 | `answers.md / answers.html` | 作答后的答案与逐项解析 |
-| `coverage.md / coverage.html` | 考点覆盖、模块条目追踪与审核状态 |
+| `study-guide.md` 或 `review-book.md` | 单元讲义或复习全书模式的知识与题组 |
+| `coverage.md / coverage.html` | 考点覆盖、递进题组、模块条目追踪与审核状态 |
+| `pdf/*.pdf` | `render --pdf` 生成的 PDF；同时保留编译日志 |
 | `validation.json` | 校验结果，便于定位错误 |
 | `blind-packet.json` | 独立复答者使用，只给此包，不给预设答案 |
 | `bank.json / bank.snapshot.json` | 包含标准答案与设计信息，供作者维护，不作为试卷分发 |
 | `feedback.json / remediation-plan.json` | 作答反馈和后续补学、再练设计 |
 
-HTML 可离线打开和通过浏览器打印另存 PDF；工具不自动生成 PDF 文件。
+HTML 可离线打开；`render --pdf` 会调用 Pandoc 和 XeLaTeX 生成 PDF。运行 `doctor` 可查看依赖状态，缺少 XeLaTeX 时不会伪称导出成功。
 
 ## 常见问题
 
@@ -329,11 +337,11 @@ HTML 可离线打开和通过浏览器打印另存 PDF；工具不自动生成 P
 
 **为什么只改了 JSON 排版也使审核失效？**
 
-哈希绑定的是文件实际字节。排版变化也会改变哈希；应重新建立相关绑定并复核，不能手改旧审核哈希伪装为已检查。
+题库与来源通过路径和版本登记。文件内容或版本变化后应重新建立相关登记并复核，不能手改旧审核记录伪装为已检查。
 
 **桥接报“条目不存在”或“知识 ID 不一致”怎么办？**
 
-检查 artifact 路径和哈希、item_ids、point_map，以及 bank.points 的 knowledge_ids。实际复用模式下，每题主考点须关联其题型模块的真实条目，总调度也要登记该模块。
+检查 artifact 路径和版本、item_ids、point_map，以及 bank.points 的 knowledge_ids。实际复用模式下，每题主考点须关联其题型模块的真实条目，总调度也要登记该模块。
 
 **扫描 PDF 或复杂表格提取不完整怎么办？**
 

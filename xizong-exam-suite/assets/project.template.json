@@ -2,6 +2,7 @@
   "schema_version": 1,
   "project_name": "我的西综单元练习",
   "mode": "unit_practice",
+  "layout_profile": "exam",
   "purpose": "practice",
   "scope_policy": "lecture_only",
   "target_exam": "西医综合",
@@ -27,6 +28,15 @@
     "x_max_correct": 4,
     "x_scoring": "exact_set",
     "b_reuse_allowed": true
+  },
+  "pdf": {
+    "cjk_font": "Microsoft YaHei",
+    "geometry": "margin=2cm"
+  },
+  "variant_policy": {
+    "enabled": true,
+    "stages": ["basic", "variant", "integrated", "challenge"],
+    "minimum_stages": 2
   },
   "sources": [
     {

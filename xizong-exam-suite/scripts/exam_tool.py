@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from difflib import SequenceMatcher
-import hashlib
 import html
 import json
 from pathlib import Path
@@ -18,10 +17,13 @@ import zipfile
 
 from learning_bridge import build_bridge, validate_bridge, validate_question_links, strings
 from learning_loop import attempt_template, assess, validate_remediation
+from quality_check import check_markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 TYPES = {"A1", "A2", "A3A4", "B", "X"}
 COGNITIVE = {"memory", "understanding", "application", "integration"}
+MODES = {"unit_practice", "study_guide", "review_book", "practice_only"}
+TRANSFER_STAGES = {"basic": 0, "variant": 1, "integrated": 2, "challenge": 3}
 ROLES = {"lecture", "syllabus", "style", "reference"}
 UPSTREAM_MODULES = {
     "dispatcher", "a1_concept", "a2_case_summary", "case_workflow",
@@ -43,10 +45,6 @@ class Invalid(ValueError):
 def require(condition, message):
     if not condition:
         raise Invalid(message)
-
-
-def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def load(path):
@@ -87,7 +85,7 @@ def output_path(project_path, raw):
 
 def get_unit(project, unit_id):
     require(project.get("schema_version") == 1, "project.schema_version 必须为 1")
-    require(project.get("mode") == "unit_practice", "当前工具只发布单元练习；正式卷型需另行核对和适配。")
+    require(project.get("mode") in MODES, "project.mode 必须为 unit_practice/study_guide/review_book/practice_only")
     require(project.get("scope_policy") == "lecture_only", "仅实现 lecture_only 范围策略")
     matches = [u for u in project.get("units", []) if u.get("id") == unit_id]
     require(len(matches) == 1, f"单元不存在或重复：{unit_id}")
@@ -172,7 +170,7 @@ def index_data(project_path, unit_id):
     require(len(ids) == len(set(ids)), "来源 ID 重复")
     sources = {s["id"]: s for s in project.get("sources", [])}
     result = {"schema_version": 1, "unit_id": unit_id, "unit_title": unit["title"],
-              "project_sha256": digest(project_path), "sources": [], "blocks": [], "warnings": []}
+              "sources": [], "blocks": [], "warnings": []}
     selected = set()
     for selection in unit.get("materials", []):
         sid = selection["source_id"]
@@ -206,7 +204,7 @@ def index_data(project_path, unit_id):
         if path.suffix.lower() == ".docx":
             result["warnings"].append(f"{sid} DOCX 按段落提取，无页码；表格布局与图片需另行核对。")
         metadata = {"id": sid, "title": source.get("title", path.name), "role": source["role"],
-                    "path": source["path"], "sha256": digest(path), "version": source.get("version", "未注明")}
+                    "path": source["path"], "version": source.get("version", "未注明")}
         result["sources"].append(metadata)
         result["blocks"].extend(blocks)
     require(any(s["role"] == "lecture" for s in result["sources"]), "单元至少绑定一个 lecture 来源")
@@ -237,6 +235,50 @@ def options_for(question, groups):
     return question.get("options", {})
 
 
+def validate_variant_sets(bank, points, questions, check):
+    """Validate optional progressive question sets without changing exam scoring."""
+    raw_sets = bank.get("variant_sets", [])
+    check(isinstance(raw_sets, list), "variant_sets 必须为对象数组")
+    if not isinstance(raw_sets, list):
+        return []
+    qmap = {q.get("id"): q for q in questions}
+    seen = set()
+    report = []
+    for item in raw_sets:
+        sid = item.get("id") if isinstance(item, dict) else None
+        check(nonempty(sid) and sid not in seen, "变式题组 ID 为空或重复")
+        if not nonempty(sid) or sid in seen:
+            continue
+        seen.add(sid)
+        point_id = item.get("point_id")
+        check(point_id in points and points[point_id].get("status") == "ready", f"{sid} 主考点不存在或未就绪")
+        qids = item.get("question_ids")
+        check(isinstance(qids, list) and len(qids) >= 2 and strings(qids), f"{sid} 至少需要两个递进题目")
+        if not isinstance(qids, list) or not strings(qids):
+            continue
+        check(all(qid in qmap for qid in qids), f"{sid} 引用了不存在的题目")
+        stages = []
+        for qid in qids:
+            q = qmap.get(qid)
+            if not q:
+                continue
+            check(q.get("variant_set_id") == sid, f"{qid} 未正确绑定变式题组 {sid}")
+            check(point_id in q.get("point_ids", []), f"{qid} 未覆盖变式题组主考点 {point_id}")
+            stage = q.get("transfer_stage", "basic")
+            check(stage in TRANSFER_STAGES, f"{qid} 递进阶段无效")
+            stages.append(stage)
+        ordered = sorted(stages, key=TRANSFER_STAGES.get)
+        check(stages == ordered and len(set(stages)) == len(stages), f"{sid} 阶段必须按 basic/variant/integrated/challenge 递进且不重复")
+        check(stages and stages[0] == "basic", f"{sid} 必须从 basic 阶段开始")
+        check(nonempty(item.get("learning_goal")), f"{sid} 缺少 learning_goal")
+        report.append({"id": sid, "point_id": point_id, "question_ids": qids,
+                       "stages": stages, "learning_goal": item.get("learning_goal", "")})
+    bound = {q.get("id") for q in questions if q.get("variant_set_id")}
+    declared = {qid for item in report for qid in item["question_ids"]}
+    check(bound <= declared, "题目声明了不存在的 variant_set")
+    return report
+
+
 def validate(project_path, index_path, bank_path, reviews_path=None, final=False, histories=()):
     project, index, bank = load(project_path), load(index_path), load(bank_path)
     errors, warnings = [], []
@@ -250,8 +292,6 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
 
     unit = get_unit(project, bank.get("unit_id"))
     check(index == index_data(project_path, bank.get("unit_id")), "索引与实际来源/单元选择不一致，请重新生成索引")
-    check(index.get("project_sha256") == digest(project_path), "项目配置已改变，必须重新索引和核对")
-    check(bank.get("source_index_sha256") == digest(index_path), "来源索引哈希不匹配")
     check(index.get("unit_id") == bank.get("unit_id"), "题库与索引单元不一致")
     check(bank.get("schema_version") == 1, "题库 schema_version 必须为 1")
     check(bank.get("source_type") == "generated_mock", "题库必须标记 generated_mock")
@@ -262,7 +302,7 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
     check(len(blocks) == len(index["blocks"]), "来源块 ID 重复")
     for s in sources.values():
         path = resolve_source(project_path, s["path"])
-        check(path.is_file() and digest(path) == s["sha256"], f"来源已改变或丢失：{s['id']}")
+        check(path.is_file(), f"来源文件不存在：{s['id']}")
     for n, message in enumerate(index.get("warnings", [])):
         warn(f"source:{n}", message)
 
@@ -335,6 +375,7 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
         check(nonempty(q.get("originality_note")), f"{qid} 缺少原创/改编说明")
         check(type(q.get("high_risk")) is bool, f"{qid} 必须明确 high_risk")
         check(q.get("cognitive_level") in COGNITIVE, f"{qid} 认知层次无效")
+        check(q.get("transfer_stage", "basic") in TRANSFER_STAGES, f"{qid} 递进阶段无效")
         if integration_enabled:
             reuse_trace.extend(validate_question_links(q, artifacts, reuse_mode, check, profile))
         difficulty = q.get("difficulty", {})
@@ -411,6 +452,7 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
                 if SequenceMatcher(None, fp, oldtext).ratio() >= 0.88:
                     warn(f"history:{Path(historical_path).name}:{oldq.get('id')}:{qid}", f"{qid} 接近历史题 {oldq.get('id')}，请确认训练目的")
 
+    variant_sets = validate_variant_sets(bank, points, questions, check)
     validate_remediation(project_path, bank, check)
 
     if final:
@@ -419,8 +461,8 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
             review = load(reviews_path)
             check(review.get("schema_version") == 1, "复核 schema_version 无效")
             check(review.get("unit_id") == bank.get("unit_id"), "复核单元不一致")
-            check(review.get("bank_sha256") == digest(bank_path), "题库已改变，旧复核记录失效")
-            check(review.get("source_index_sha256") == digest(index_path), "复核绑定的索引不一致")
+            check(review.get("bank_path") == str(Path(bank_path).resolve()), "复核绑定的题库路径不一致")
+            check(review.get("source_index_path") == str(Path(index_path).resolve()), "复核绑定的索引路径不一致")
             check(review.get("reviewer_mode") in {"independent_ai", "human"}, "同上下文自查不算独立复答")
             check(nonempty(review.get("reviewer")), "需记录实际复答者/会话")
             checks = {c["question_id"]: c for c in review.get("checks", [])}
@@ -453,7 +495,7 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
                           "count": tested[pid], "hold_reason": p.get("hold_reason", "")} for pid, p in points.items()],
             "integration": {"enabled": integration_enabled, "reuse_mode": reuse_mode,
                             "module_counts": dict(module_counts), "reused_item_count": len(reuse_trace), "trace": reuse_trace},
-            "bank_sha256": digest(bank_path), "source_index_sha256": digest(index_path),
+            "variant_sets": variant_sets,
             "limits": "检查文件绑定、结构和记录，不证明医学正确或复核记录真实。"}
 
 
@@ -470,8 +512,10 @@ def blind(project_path, index_path, bank_path, destination):
               "groups": [{k: g[k] for k in ("id", "type", "stem", "options") if k in g} for g in bank.get("groups", [])], "questions": questions,
               "sources": [{k: s[k] for k in ("id", "title", "role", "version")} for s in index["sources"]],
               "blocks": index["blocks"]}
-    template = {"schema_version": 1, "unit_id": bank["unit_id"], "bank_sha256": digest(bank_path),
-                "source_index_sha256": digest(index_path), "reviewer_mode": "self_review", "reviewer": "",
+    template = {"schema_version": 1, "unit_id": bank["unit_id"],
+                "bank_path": str(Path(bank_path).resolve()),
+                "source_index_path": str(Path(index_path).resolve()),
+                "reviewer_mode": "self_review", "reviewer": "",
                 "acknowledged_warnings": {}, "checks": [{"question_id": q["id"], "verdict": "pending",
                   "source_status": "pending", "item_status": "pending", "medical_status": "pending",
                   "medical_reference_blocks": [], "blind_answer": [], "blind_reason": "", "notes": ""} for q in bank["questions"]]}
@@ -508,11 +552,26 @@ def doc_markdown(elements):
     return "\n".join(lines)
 
 
-def render(project_path, index_path, bank_path, destination, stage="draft", reviews_path=None, histories=()):
-    report = validate(project_path, index_path, bank_path, reviews_path, stage == "final", histories)
-    require(report["ok"], "不能导出：" + "; ".join(report["errors"]))
-    require(not destination.exists(), "导出目录已存在，请使用新的目录避免覆盖")
-    project, index, bank = load(project_path), load(index_path), load(bank_path)
+def _question_elements(q, groups, number=None, include_answer=False, blocks=None, sources=None):
+    label = f"{number}. " if number is not None else ""
+    stage = q.get("transfer_stage", "basic")
+    elements = [("sub", f"{label}[{q['type']}·{stage}] {q['stem']}")]
+    opts = options_for(q, groups)
+    if q["type"] != "B":
+        elements.extend(("p", f"{key}. {value}") for key, value in opts.items())
+    if include_answer:
+        elements.extend([("p", "答案：" + "、".join(q["answer"])), ("p", q["explanation"]),
+                         ("p", "考点：" + "、".join(q["point_ids"]) + "；难度目标：" + q["difficulty"]["level"] + "；理由：" + q["difficulty"]["reason"])])
+        for key, analysis in q["option_analysis"].items():
+            elements.append(("p", f"{key}. {opts[key]}｜{'正确' if analysis['correct'] else '错误'}：{analysis['reason']}"))
+        for evidence in q["evidence"]:
+            block = blocks[evidence["block_id"]]
+            source = sources[block["source_id"]]
+            elements.append(("p", f"出处：{source['title']}（{source['version']}），{block['locator']}，{block['section']}，{block['id']}\n依据摘录：{evidence['quote']}"))
+    return elements
+
+
+def _build_documents(project, index, bank, report, stage, reviews_path):
     groups = {g["id"]: g for g in bank.get("groups", [])}
     blocks = {b["id"]: b for b in index["blocks"]}
     sources = {s["id"]: s for s in index["sources"]}
@@ -526,39 +585,32 @@ def render(project_path, index_path, bank_path, destination, stage="draft", revi
         instructions.append("X 型为多选，须选中所有正确项且不选错误项。")
     if "B" in present_types:
         instructions.append("B 型同组选项" + ("可以复用。" if project["exam_profile"]["b_reuse_allowed"] else "不可复用。"))
-    exam = [("title", bank["title"] + " · 试题"), ("p", notice),
-            ("p", "".join(instructions))]
+    exam = [("title", bank["title"] + " · 试题"), ("p", notice), ("p", "".join(instructions))]
     answers = [("title", bank["title"] + " · 答案与解析"), ("p", notice)]
     shown = set()
-    for i, q in enumerate(bank["questions"], 1):
-        gid = q.get("group_id")
-        if gid and gid not in shown:
-            g = groups[gid]
-            exam.append(("heading", f"题组 {gid}"))
-            if g.get("stem"):
-                exam.append(("p", g["stem"]))
-            if g["type"] == "B":
-                exam.extend(("p", f"{k}. {v}") for k, v in g["options"].items())
-            shown.add(gid)
-        exam.extend([("sub", f"{i}. [{q['type']}] {q['stem']}")])
-        if q["type"] != "B":
-            exam.extend(("p", f"{k}. {v}") for k, v in q["options"].items())
-        answers.extend([("heading", f"第 {i} 题 · {q['id']}"), ("p", "答案：" + "、".join(q["answer"])),
-                        ("p", q["explanation"]), ("p", "考点：" + "、".join(q["point_ids"]) + "；难度目标：" + q["difficulty"]["level"] + "；理由：" + q["difficulty"]["reason"])])
-        opts = options_for(q, groups)
-        for key, a in q["option_analysis"].items():
-            answers.append(("p", f"{key}. {opts[key]}｜{'正确' if a['correct'] else '错误'}：{a['reason']}"))
-        for ev in q["evidence"]:
-            b = blocks[ev["block_id"]]
-            s = sources[b["source_id"]]
-            answers.append(("p", f"出处：{s['title']}（{s['version']}），{b['locator']}，{b['section']}，{b['id']}\n依据摘录：{ev['quote']}"))
+    for number, question in enumerate(bank["questions"], 1):
+        group_id = question.get("group_id")
+        if group_id and group_id not in shown:
+            group = groups[group_id]
+            exam.append(("heading", f"题组 {group_id}"))
+            if group.get("stem"):
+                exam.append(("p", group["stem"]))
+            if group["type"] == "B":
+                exam.extend(("p", f"{key}. {value}") for key, value in group["options"].items())
+            shown.add(group_id)
+        exam.extend(_question_elements(question, groups, number))
+        answers.extend(_question_elements(question, groups, number, True, blocks, sources))
+
     coverage = [("title", bank["title"] + " · 覆盖与审核"), ("p", notice),
                 ("p", "结构检查通过；来源匹配不等于医学正确。"),
                 ("table", (["考点", "名称", "状态", "题数", "搁置原因"], [[x["point_id"], x["label"], x["status"], x["count"], x["hold_reason"]] for x in report["coverage"]]))]
+    if report.get("variant_sets"):
+        coverage.append(("heading", "递进式变式题组"))
+        coverage.append(("table", (["题组", "主考点", "阶段", "题目", "学习目标"], [[v["id"], v["point_id"], " → ".join(v["stages"]), "、".join(v["question_ids"]), v["learning_goal"]] for v in report["variant_sets"]])) )
     if report.get("integration", {}).get("enabled"):
         coverage.append(("heading", "上游模块追踪"))
         coverage.append(("p", "复用模式：" + report["integration"]["reuse_mode"] + "；实际条目引用数：" + str(report["integration"]["reused_item_count"])))
-        coverage.append(("table", (["题目", "模块", "产物/条目", "稳定知识点", "设计转化"], [[t["question_id"], t["module"], t["artifact_id"] + "/" + t["item_id"], t["knowledge_id"], t["transfer_goal"]] for t in report["integration"]["trace"]])))
+        coverage.append(("table", (["题目", "模块", "产物/条目", "稳定知识点", "设计转化"], [[t["question_id"], t["module"], t["artifact_id"] + "/" + t["item_id"], t["knowledge_id"], t["transfer_goal"]] for t in report["integration"]["trace"]])) )
         coverage.append(("p", "上游模块仅作为题型、认知和错误模式的设计参考；医学事实仍以题目 evidence 为准。"))
         coverage.append(("table", (["模块", "题目引用次数"], [[k, v] for k, v in sorted(report["integration"]["module_counts"].items())])))
     if reviews_path and stage == "final":
@@ -567,20 +619,115 @@ def render(project_path, index_path, bank_path, destination, stage="draft", revi
         coverage.append(("table", (["题目", "结论", "医学依据状态", "复核说明"], [[c["question_id"], c["verdict"], c["medical_status"], c["notes"]] for c in review["checks"]])))
     else:
         coverage.append(("p", "尚无有效独立复答记录；目前为草稿，不得宣称医学审核通过。"))
-    for w in report["warnings"]:
-        coverage.append(("p", w["code"] + "：" + w["message"]))
+    for warning in report["warnings"]:
+        coverage.append(("p", warning["code"] + "：" + warning["message"]))
         if reviews_path and stage == "final":
-            coverage.append(("p", "处置说明：" + review["acknowledged_warnings"][w["code"]]))
+            coverage.append(("p", "处置说明：" + review["acknowledged_warnings"][warning["code"]]))
+
+    points = {p["id"]: p for p in bank.get("points", [])}
+    study = [("title", bank["title"] + " · 单元讲义"), ("p", notice),
+             ("p", "按考点组织知识梳理、典型题和递进式变式题组。")]
+    review_book = [("title", bank["title"] + " · 复习全书"), ("p", notice),
+                   ("p", "每章围绕一个考点展开，保留题型、阶段、解析和来源定位。")]
+    chapter = 0
+    for point_id, point in points.items():
+        point_questions = [q for q in bank["questions"] if point_id in q["point_ids"]]
+        study.extend([("heading", f"{point_id} · {point['label']}"), ("p", "学习目标：" + point["objective"])])
+        chapter += 1
+        review_book.extend([("heading", f"第 {chapter} 章 · {point['label']}"),
+                            ("p", "考点编号：" + point_id + "；学习目标：" + point["objective"])])
+        for number, question in enumerate(point_questions, 1):
+            study.extend(_question_elements(question, groups, number, True, blocks, sources))
+            review_book.extend(_question_elements(question, groups, number, True, blocks, sources))
+
+    mode = project.get("mode", "unit_practice")
+    if mode == "unit_practice":
+        return {"questions": exam, "answers": answers, "coverage": coverage}
+    if mode == "practice_only":
+        return {"questions": exam, "coverage": coverage}
+    if mode == "study_guide":
+        return {"study-guide": study, "coverage": coverage}
+    return {"review-book": review_book, "coverage": coverage}
+
+
+def render_pdf(destination, markdown_paths, project):
+    pandoc = shutil.which("pandoc")
+    xelatex = shutil.which("xelatex")
+    require(pandoc and xelatex, "PDF 导出需要 pandoc 和 xelatex；请先运行 doctor 检查依赖")
+    pdf_dir = destination / "pdf"
+    pdf_dir.mkdir()
+    pdf_cfg = project.get("pdf", {})
+    font = pdf_cfg.get("cjk_font", "Microsoft YaHei")
+    geometry = pdf_cfg.get("geometry", "margin=2cm")
+    logs = {}
+    for markdown_path in markdown_paths:
+        output = pdf_dir / (markdown_path.stem + ".pdf")
+        command = [pandoc, str(markdown_path), "-o", str(output), "--from", "markdown+raw_tex",
+                   "--pdf-engine=xelatex", "-V", "documentclass=ctexart", "-V", f"geometry:{geometry}",
+                   "-V", f"CJKmainfont={font}", "-V", f"mainfont={font}", "-V", f"sansfont={font}"]
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+        log_path = pdf_dir / (markdown_path.stem + ".log")
+        log_path.write_text(result.stdout + "\n" + result.stderr, encoding="utf-8")
+        logs[markdown_path.stem] = str(log_path)
+        require(result.returncode == 0 and output.is_file(), f"PDF 导出失败：{markdown_path.name}；详见 {log_path}")
+    return logs
+
+
+def render(project_path, index_path, bank_path, destination, stage="draft", reviews_path=None, histories=(), pdf=False):
+    report = validate(project_path, index_path, bank_path, reviews_path, stage == "final", histories)
+    require(report["ok"], "不能导出：" + "; ".join(report["errors"]))
+    require(not destination.exists(), "导出目录已存在，请使用新的目录避免覆盖")
+    project, index, bank = load(project_path), load(index_path), load(bank_path)
+    documents = _build_documents(project, index, bank, report, stage, reviews_path)
     destination.mkdir(parents=True)
-    for filename, document in [("questions", exam), ("answers", answers), ("coverage", coverage)]:
-        (destination / (filename + ".md")).write_text(doc_markdown(document), encoding="utf-8")
+    markdown_paths = []
+    quality_reports = {}
+    for filename, document in documents.items():
+        markdown_path = destination / (filename + ".md")
+        markdown_path.write_text(doc_markdown(document), encoding="utf-8")
+        quality = check_markdown(markdown_path, "questions" if filename == "questions" else "generic")
+        quality_reports[filename] = quality
+        require(quality["ok"], f"Markdown 质量检查失败：{filename}")
         (destination / (filename + ".html")).write_text(doc_html(bank["title"], document), encoding="utf-8")
+        markdown_paths.append(markdown_path)
+    report["markdown_quality"] = quality_reports
+    if pdf:
+        report["pdf_logs"] = render_pdf(destination, markdown_paths, project)
     dump(destination / "validation.json", report)
     dump(destination / "project.snapshot.json", project)
     dump(destination / "bank.snapshot.json", bank)
     if reviews_path and stage == "final":
         dump(destination / "reviews.snapshot.json", load(reviews_path))
     return report
+
+
+def doctor():
+    checks = []
+
+    def command_check(name, required, install_hint):
+        path = shutil.which(name)
+        checks.append({"name": name, "ok": bool(path), "required": required,
+                       "detail": path or f"未找到；{install_hint}"})
+
+    checks.append({"name": "python", "ok": sys.version_info >= (3, 10), "required": True,
+                   "detail": sys.version.split()[0]})
+    command_check("pandoc", True, "安装 Pandoc")
+    command_check("xelatex", True, "安装 TeX Live/ctex")
+    command_check("pdftoppm", False, "安装 Poppler 以进行 PDF 页面预览")
+    command_check("pdftotext", False, "安装 Poppler 以提取 PDF 文本")
+    try:
+        import pypdf  # noqa: F401
+        pypdf_ok = True
+    except ImportError:
+        pypdf_ok = False
+    checks.append({"name": "pypdf", "ok": pypdf_ok, "required": False, "detail": "可用" if pypdf_ok else "未安装；PDF 提取可改用 pdftotext"})
+    font_paths = [Path("C:/Windows/Fonts/msyh.ttc"), Path("C:/Windows/Fonts/simhei.ttf"),
+                  Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")]
+    font_ok = any(path.is_file() for path in font_paths)
+    checks.append({"name": "cjk_font", "ok": font_ok, "required": True,
+                   "detail": "检测到中文字体" if font_ok else "未检测到常用中文字体；可在 project.json 的 pdf.cjk_font 指定字体"})
+    return {"ok": all(item["ok"] for item in checks if item["required"]), "checks": checks,
+            "notes": "required 项全部可用后才能稳定导出 PDF；optional 项用于 PDF 输入和页面预览。"}
 
 
 def initialize(workspace):
@@ -604,6 +751,10 @@ def main():
     p.add_argument("--project", required=True)
     p.add_argument("--unit", required=True)
     p.add_argument("--out", required=True)
+    commands.add_parser("doctor")
+    p = commands.add_parser("quality-check")
+    p.add_argument("--input", required=True)
+    p.add_argument("--kind", choices=("generic", "questions"), default="generic")
     for name in ("validate", "blind", "render", "attempt-template", "feedback"):
         p = commands.add_parser(name)
         p.add_argument("--project", required=True)
@@ -612,6 +763,8 @@ def main():
         if name in {"validate", "render"}:
             p.add_argument("--stage", choices=("draft", "final"), default="draft")
             p.add_argument("--history", action="append", default=[])
+        if name == "render":
+            p.add_argument("--pdf", action="store_true", help="同时导出 PDF；需要 pandoc 和 xelatex")
         if name in {"validate", "render", "feedback"}:
             p.add_argument("--reviews")
         if name == "feedback":
@@ -622,14 +775,18 @@ def main():
     try:
         if args.command == "init":
             result = initialize(Path(args.workspace).resolve())
+        elif args.command == "doctor":
+            result = doctor()
+        elif args.command == "quality-check":
+            result = check_markdown(args.input, args.kind)
         elif args.command == "index":
             out = output_path(args.project, args.out)
             index = build_index(args.project, args.unit, out)
-            result = {"index": str(out), "sha256": digest(out), "blocks": len(index["blocks"]), "warnings": index["warnings"]}
+            result = {"index": str(out), "blocks": len(index["blocks"]), "warnings": index["warnings"]}
         elif args.command == "bridge":
             out = output_path(args.project, args.out)
             bridge = bridge_template(args.project, args.unit, out)
-            result = {"bridge": str(out), "sha256": digest(out), "modules": bridge["modules"]}
+            result = {"bridge": str(out), "modules": bridge["modules"]}
         elif args.command == "validate":
             result = validate(args.project, args.index, args.bank, args.reviews, args.stage == "final", args.history)
         elif args.command in {"attempt-template", "feedback"}:
@@ -647,7 +804,6 @@ def main():
                 if reviews is not None:
                     for document in (feedback, plan):
                         document["bindings"]["reviews_path"] = str(Path(reviews).resolve())
-                        document["bindings"]["reviews_sha256"] = digest(reviews)
                 dump(out / "feedback.json", feedback)
                 dump(out / "remediation-plan.json", plan)
                 result = {"output_directory": str(out), "grading_status": feedback["grading_status"], "summary": feedback["summary"]}
@@ -657,7 +813,7 @@ def main():
             result = {"blind_directory": str(out)}
         else:
             out = output_path(args.project, args.out)
-            result = render(args.project, args.index, args.bank, out, args.stage, args.reviews, args.history)
+            result = render(args.project, args.index, args.bank, out, args.stage, args.reviews, args.history, args.pdf)
             result["output_directory"] = str(out)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", True) else 1

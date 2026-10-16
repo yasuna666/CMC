@@ -1,6 +1,6 @@
 ---
 name: xizong-exam-suite
-description: 根据西医综合单元讲义生成原创模拟题、逐项解析、来源定位和考点覆盖表；支持 A1、A2、共用题干病例题组、B 型配伍和 X 型多选，同时提供原有西综真题分类、概念簇与病例工作流。用户要求按讲义出题、单元测验、模拟卷、变式题、审题，或处理西综真题、复习笔记、作答反馈与错题定向再练时使用。
+description: 根据西医综合单元讲义生成原创模拟题、讲义、复习全书或纯练习，提供逐项解析、来源定位、递进式变式题组和考点覆盖表；支持 A1、A2、共用题干病例题组、B 型配伍和 X 型多选。用户要求按讲义出题、整理复习资料、审题、PDF 导出、作答反馈或错题定向再练时使用。
 ---
 
 # 西综讲义命题与复习套件
@@ -13,9 +13,9 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 
 1. 定位用户提供的讲义；未提供则索取，不编造用户讲义。
 2. 读取 [讲义命题流程](references/lecture-workflow.md)、[题型规则](references/question-rules.md)、[审核规范](references/quality-review.md) 和 [六模块桥接](references/upstream-bridge.md)。
-3. 在用户工作目录创建配置；相对数据路径基于配置目录，不基于 Skill 安装目录。新项目默认启用六模块桥接，先生成 v2 `upstream-bridge.json`；无积累用 rules_only，有实际学习产物用 artifact_reuse。
-4. 默认做单元练习，建议先做 10 题。沿用用户已给的数量与格式，不反复确认普通偏好。
-5. 按 [数据约定](references/data-contract.md) 组织题目，以 `scripts/exam_tool.py` 校验和导出。
+3. 在用户工作目录创建配置；相对数据路径基于配置目录，不基于 Skill 安装目录。新项目默认启用六模块桥接，先生成 `upstream-bridge.json`；无积累用 rules_only，有实际学习产物用 artifact_reuse。
+4. 先确定 `mode`：`unit_practice`（单元练习）、`study_guide`（单元讲义）、`review_book`（复习全书）或 `practice_only`（纯练习）。未指定时使用 `unit_practice`。
+5. 按 [数据约定](references/data-contract.md) 组织题目，以 `scripts/exam_tool.py` 校验、Markdown 检查和导出；需要 PDF 时追加 `--pdf`。
 
 安装、配置和命令见 [使用说明](references/usage.md)。本套件提供统一入口及七个工作分支，六个原技能完整附带，无需依赖宿主对子技能的自动发现。
 
@@ -23,13 +23,14 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 
 先读 [模块适配协议](references/module-adapters.md)。study 使用原真题 SOP；generate 先取概念、鉴别矩阵或决策链再命题；remediate 先读取真实作答和计划再补学、出变式。按需加载，不要求每题运行全部六模块。
 
-实际复用时，以稳定 knowledge_id 贯穿原学习条目、本轮考点和再练目标。每题 upstream_refs 指明真实 artifact/item_ids；使用 SHA-256 绑定产物及原始输入。单纯规则引用不能声称复用了历史积累。
+实际复用时，以稳定 knowledge_id 贯穿原学习条目、本轮考点和再练目标。每题 upstream_refs 指明真实 artifact/item_ids；使用明确的来源路径、版本和定位记录复用关系，不把规则引用冒充历史学习积累。
 
 ## 任务路由
 
 | 请求 | 按需读取 |
 |---|---|
 | 根据讲义出题、测验、模拟卷、变式题 | [讲义命题流程](references/lecture-workflow.md) |
+| 整理讲义、复习全书或纯练习 | [讲义命题流程](references/lecture-workflow.md) + [使用说明](references/usage.md) |
 | 批改实际作答、分析错因、定向再练 | [学习闭环](references/learning-loop.md) + [模块适配协议](references/module-adapters.md) |
 | 审核已生成的模拟题 | [审核规范](references/quality-review.md)，要求题目及真实来源 |
 | 分析整份真题 | [兼容规则](references/integration.md) + [原总调度](references/upstream/西综总调度-Skill/SKILL.md) |
@@ -53,6 +54,8 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 - 难度只是设计目标；只有真实作答记录才能支持实测难度，不承诺正确率或押题命中率。
 - 每个计分小题独立计数，共用材料不额外计题。单元练习不默认套整卷分值比例。
 - 要求某年仿真卷时实际核对该年考纲/样卷的题型、选项数、分值、评分；未核对只能称单元练习。
+- 递进式变式题组至少包含 `basic` 和一个更高阶段，可继续使用 `variant`、`integrated`、`challenge`；每个阶段必须改变条件、情境或推理任务。
+- 生成 Markdown 后运行 `quality-check`；PDF 导出前运行 `doctor`，缺少 `xelatex` 时如实报告，不能声称已生成 PDF。
 
 ## 文件与工具
 
@@ -67,9 +70,10 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 - `references/validation-report.md`：已完成的验证及适用范围。
 - `references/module-adapters.md`：六模块向命题分支交付的最小结构化内容。
 - `references/learning-loop.md`：真实作答、暂定/已复核反馈、定向变式追踪。
-- `scripts/exam_tool.py`：初始化、索引、桥接、校验、盲答包、导出、空作答模板和反馈计划。
+- `scripts/exam_tool.py`：初始化、索引、桥接、校验、依赖诊断、Markdown 检查、盲答包、四种文档导出、PDF 导出、空作答模板和反馈计划。
+- `scripts/quality_check.py`：生成 Markdown 的结构和排版质量检查。
 - `scripts/learning_bridge.py`、`scripts/learning_loop.py`：上述命令的标准库实现。
-- `assets/`：空白配置、题库模板和上游哈希。
+- `assets/`：空白配置、题库模板、文档模式和变式题组配置。
 - `references/upstream/`：完整原始仓库文件，字节不变。
 
-脚本不调用模型 API。AI 负责阅读、命题、审题；Python 负责索引和确定性检查。新工具使用 Python 3.10+ 标准库；PDF 提取额外需要 `pdftotext` 或 `pypdf`，扫描件需宿主 OCR/视觉并核对。输出为离线 Markdown 和可打印 HTML。
+脚本不调用模型 API。AI 负责阅读、命题、审题；Python 负责索引和确定性检查。新工具使用 Python 3.10+ 标准库；PDF 提取额外需要 `pdftotext` 或 `pypdf`，PDF 导出需要 `pandoc`、`xelatex` 和中文字体，扫描件需宿主 OCR/视觉并核对。输出为 Markdown、离线 HTML，或在依赖满足时输出 PDF。

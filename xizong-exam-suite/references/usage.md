@@ -18,7 +18,7 @@
 python3 scripts/exam_tool.py init --workspace ../my-xizong
 ```
 
-将讲义放入 ../my-xizong/materials/，修改生成的 project.json：单元名、实际文件名、题型数量。PDF 可填写 pages，避免读取整本书；Markdown 可填写 sections。DOCX 没有稳定物理页，按段落定位，图片/表格需要另行核对。
+将讲义放入 ../my-xizong/materials/，修改生成的 project.json：单元名、实际文件名、题型数量和 `mode`。可用四种模式：`unit_practice` 单元练习、`study_guide` 单元讲义、`review_book` 复习全书、`practice_only` 纯练习。PDF 可填写 pages，避免读取整本书；Markdown 可填写 sections。DOCX 没有稳定物理页，按段落定位，图片/表格需要另行核对。
 
 以下命令仍从 Skill 目录执行，运行 r01。所有 --out 相对路径基于 project.json 的目录；--project/--index/--bank/--reviews/--history 相对路径基于当前命令目录。
 
@@ -28,13 +28,13 @@ python3 scripts/exam_tool.py init --workspace ../my-xizong
 python3 scripts/exam_tool.py bridge --project ../my-xizong/project.json --unit U001 --out output/mock-exams/r01/upstream-bridge.json
 ```
 
-桥接清单预置六个原模块的规则引用与文件哈希，schema_version=2。默认 rules_only；有实际学习产物时按 upstream-bridge.md 切换 artifact_reuse，登记产物、原始输入哈希、条目和知识映射。处理真实真题时，再把总调度产出的路由记录和实际模块产物追加到清单；将其 SHA-256 填入题库 `integration.bridge_sha256`。每道题在 `upstream_refs` 中填写对应模块和 `transfer_goal`。桥接只约束设计来源，题目答案仍需引用讲义/教材索引块。
+桥接清单预置六个原模块的规则引用，schema_version=2。默认 rules_only；有实际学习产物时按 upstream-bridge.md 切换 artifact_reuse，登记产物路径、版本、定位、条目和知识映射。处理真实真题时，再把总调度产出的路由记录和实际模块产物追加到清单。每道题在 `upstream_refs` 中填写对应模块和 `transfer_goal`。桥接只约束设计来源，题目答案仍需引用讲义/教材索引块。
 
 ```bash
 python3 scripts/exam_tool.py index --project ../my-xizong/project.json --unit U001 --out output/mock-exams/r01/source-index.json
 ```
 
-AI 读取索引与讲义，填写考点、blueprint 和题库；以 assets/bank.template.json 为结构，在 `../my-xizong/output/mock-exams/r01/bank.json` 保存真实内容，将 index 命令输出的 sha256 填入 source_index_sha256。
+AI 读取索引与讲义，填写考点、blueprint、变式题组和题库；以 assets/bank.template.json 为结构，在 `../my-xizong/output/mock-exams/r01/bank.json` 保存真实内容。每个递进式变式题组至少包含 `basic` 和一个更高阶段，并在题目中填写 `variant_set_id`、`transfer_stage`。
 
 ```bash
 python3 scripts/exam_tool.py validate --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json
@@ -44,17 +44,18 @@ python3 scripts/exam_tool.py blind --project ../my-xizong/project.json --index .
 只把 blind/blind-packet.json 提供给新的审题上下文或人工，收集真实复答，再填写复核模板，另存 `../my-xizong/output/mock-exams/r01/reviews.json`。修改题目后重新生成盲答包和复核。
 
 ```bash
+python3 scripts/exam_tool.py doctor
 python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage draft --out output/mock-exams/r01/draft
-python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage final --reviews ../my-xizong/output/mock-exams/r01/reviews.json --out output/mock-exams/r01/reviewed
+python3 scripts/exam_tool.py render --project ../my-xizong/project.json --index ../my-xizong/output/mock-exams/r01/source-index.json --bank ../my-xizong/output/mock-exams/r01/bank.json --stage final --reviews ../my-xizong/output/mock-exams/r01/reviews.json --out output/mock-exams/r01/reviewed --pdf
 ```
 
 每次换新输出目录，工具不覆盖旧产物。若有历史模拟题库，validate/render 可重复加 `--history 历史bank.json`。没有提供历史就只能检查同卷重复。
 
 ## 输出和依赖
 
-生成 questions.md/html、answers.md/html、coverage.md/html 和 validation.json，并保存 project.snapshot.json、bank.snapshot.json；复核版另存 reviews.snapshot.json。快照用于追溯当次配置和题目，含答案的题库快照不能作为学生试卷分发。HTML 无网络脚本，可离线查看，用浏览器打印另存 PDF；本工具不自动生成 PDF，也不宣称动态在线阅卷。
+生成文件由 `mode` 决定：单元练习输出 questions、answers、coverage；纯练习只输出 questions 和 coverage；单元讲义输出 study-guide 和 coverage；复习全书输出 review-book 和 coverage。每份文档同时生成 Markdown 和 HTML；追加 `--pdf` 后在 `pdf/` 目录生成 PDF，并保留编译日志。快照用于追溯当次配置和题目，含答案的快照不能作为学生试卷分发。
 
-新工具除 PDF 提取外仅用标准库。PDF 优先用已安装的 pdftotext，其次 pypdf，不自动联网安装。扫描件需可用 OCR/视觉能力，或者先提供经核对的 Markdown；无法读取就如实报告。
+新工具除 PDF 提取外仅用标准库。PDF 优先用已安装的 pdftotext，其次 pypdf；PDF 导出需要 pandoc、xelatex 和中文字体，不自动联网安装。`quality-check` 会检查 Markdown 结构、表格、公式分隔符、控制字符和学生试卷中的答案泄露。扫描件需可用 OCR/视觉能力，或者先提供经核对的 Markdown；无法读取就如实报告。
 
 校验返回码：0 通过；1 结构/审核校验未通过；2 文件、格式、参数、路径或提取错误。任何失败都不会把题库标记为已审核。
 

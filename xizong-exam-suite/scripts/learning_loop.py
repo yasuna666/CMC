@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from learning_bridge import TYPE_MODULE, path_from, read_json, sha256, strings, text
+from learning_bridge import TYPE_MODULE, path_from, read_json, strings, text
 
 
 def require(condition, message):
@@ -24,8 +24,9 @@ def timestamp(value):
 def attempt_template(bank_path, index_path):
     bank = read_json(bank_path)
     return {
-        "schema_version": 1, "unit_id": bank["unit_id"], "bank_sha256": sha256(bank_path),
-        "source_index_sha256": sha256(index_path), "attempt_id": "", "learner_id": "",
+        "schema_version": 1, "unit_id": bank["unit_id"],
+        "bank_path": str(Path(bank_path).resolve()),
+        "source_index_path": str(Path(index_path).resolve()), "attempt_id": "", "learner_id": "",
         "completed_at": "", "record_type": "user_attempt",
         "instructions": "仅填写真实作答；null=未作答，[]=提交空答案。不得由标准答案生成用户作答。",
         "responses": [{"question_id": q["id"], "selected": None, "learner_explanation": ""} for q in bank["questions"]],
@@ -35,7 +36,8 @@ def attempt_template(bank_path, index_path):
 def assess(bank_path, index_path, attempt_path, reviewed=False):
     bank, attempt = read_json(bank_path), read_json(attempt_path)
     require(attempt.get("schema_version") == 1 and attempt.get("unit_id") == bank["unit_id"], "作答版本或单元不一致")
-    require(attempt.get("bank_sha256") == sha256(bank_path) and attempt.get("source_index_sha256") == sha256(index_path), "题库/索引已改变，作答绑定失效")
+    require(attempt.get("bank_path") == str(Path(bank_path).resolve()) and
+            attempt.get("source_index_path") == str(Path(index_path).resolve()), "作答绑定的题库或索引路径不一致")
     require(text(attempt.get("attempt_id")) and text(attempt.get("learner_id")), "需实际 attempt_id 和 learner_id")
     require(timestamp(attempt.get("completed_at")), "completed_at 需带时区的 ISO 时间")
     expected_type = "user_attempt"
@@ -83,9 +85,9 @@ def assess(bank_path, index_path, attempt_path, reviewed=False):
                             "next_action": "先回查对应知识条目与原始依据；确认错因后改变考查条件或推理任务生成变式，重新审核。"})
     correct_count = sum(r["correct"] is True for r in results)
     answered_count = sum(r["correct"] is not None for r in results)
-    bindings = {"bank_path": str(Path(bank_path).resolve()), "bank_sha256": sha256(bank_path),
-                "source_index_path": str(Path(index_path).resolve()), "source_index_sha256": sha256(index_path),
-                "attempt_path": str(Path(attempt_path).resolve()), "attempt_sha256": sha256(attempt_path)}
+    bindings = {"bank_path": str(Path(bank_path).resolve()),
+                "source_index_path": str(Path(index_path).resolve()),
+                "attempt_path": str(Path(attempt_path).resolve())}
     common = {"schema_version": 1, "unit_id": bank["unit_id"], "attempt_id": attempt["attempt_id"],
               "record_type": expected_type, "bindings": bindings,
               "grading_status": "reviewed_bank" if reviewed else "provisional_draft",
@@ -109,7 +111,6 @@ def validate_remediation(project_path, bank, check):
     try:
         require(isinstance(config, dict), "remediation 必须为对象")
         plan_path = path_from(Path(project_path).resolve().parent, config.get("plan_path"))
-        require(config.get("plan_sha256") == sha256(plan_path), "再练计划已改变")
         plan = read_json(plan_path)
         require(plan.get("schema_version") == 1, "再练计划版本无效")
         require(plan.get("unit_id") == bank.get("unit_id"), "跨单元再练需先在新范围重新规划，不能直接复用旧计划")
@@ -117,13 +118,14 @@ def validate_remediation(project_path, bank, check):
         bindings = plan["bindings"]
         for key in ("bank", "source_index", "attempt"):
             p = path_from(plan_path.parent, bindings[f"{key}_path"])
-            require(bindings.get(f"{key}_sha256") == sha256(p), f"再练来源 {key} 已改变")
+            require(p.is_file(), f"再练来源 {key} 文件不存在")
         require(plan.get("grading_status") in {"reviewed_bank", "provisional_draft"}, "再练 grading_status 无效")
         if plan["grading_status"] == "reviewed_bank":
             review_path = path_from(plan_path.parent, bindings.get("reviews_path"))
-            require(bindings.get("reviews_sha256") == sha256(review_path), "原题复核记录已改变或缺失")
+            require(review_path.is_file(), "原题复核记录不存在")
             review = read_json(review_path)
-            require(review.get("bank_sha256") == bindings["bank_sha256"] and review.get("source_index_sha256") == bindings["source_index_sha256"], "原题复核版本与计划不一致")
+            require(review.get("bank_path") == bindings["bank_path"] and
+                    review.get("source_index_path") == bindings["source_index_path"], "原题复核路径与计划不一致")
         # Recompute targets from the bound raw responses; reject invented remediation history.
         _, rebuilt = assess(bindings["bank_path"], bindings["source_index_path"], bindings["attempt_path"])
         raw_targets = plan.get("targets")

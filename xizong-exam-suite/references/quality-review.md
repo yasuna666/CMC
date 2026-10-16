@@ -23,7 +23,7 @@
 
 如实记录 reviewer_mode（independent_ai/human/self_review）、reviewer 和会话/时间标识。self_review 不可冒充盲审，只能交付草稿。脚本检查记录完整性，不能证明身份和审核真实性。
 
-答案分歧或依据不足写 revise/block，回查后修改。修改题库或索引后旧 reviews 哈希失效；不得手改哈希冒充重新审核。
+答案分歧或依据不足写 revise/block，回查后修改。修改题库或索引后应重新生成 reviews；不得沿用旧复核记录冒充重新审核。
 
 ## 已审核版门槛
 
