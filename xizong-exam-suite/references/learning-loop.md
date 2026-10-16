@@ -7,7 +7,7 @@
 - selected=null：未作答；selected=[]：明确提交空答案。单选最多一个字母，X 可提交任意合法选项集合。
 - learner_explanation：用户真实说明，可为空；不得代写冒充。
 - reason_assessment 省略时默认 unknown；hypothesis 需 reason/basis；confirmed 还需 confirmed_by 及真实 learner_explanation。程序不能验证身份，执行者必须实际询问或查阅作答解释。
-- synthetic_demo 只能用于虚构题库，不混入真实用户记录。
+- 作答记录只能来自真实用户作答，不得用预设答案生成记录。
 
 ## 比对与计划
 

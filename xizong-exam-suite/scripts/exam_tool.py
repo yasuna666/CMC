@@ -91,7 +91,7 @@ def get_unit(project, unit_id):
     require(project.get("scope_policy") == "lecture_only", "仅实现 lecture_only 范围策略")
     matches = [u for u in project.get("units", []) if u.get("id") == unit_id]
     require(len(matches) == 1, f"单元不存在或重复：{unit_id}")
-    require(project.get("purpose", "practice") in {"practice", "synthetic_demo"}, "未知 purpose")
+    require(project.get("purpose", "practice") == "practice", "未知 purpose")
     return matches[0]
 
 
@@ -431,15 +431,12 @@ def validate(project_path, index_path, bank_path, reviews_path=None, final=False
                 check(nonempty(c.get("notes")) and nonempty(c.get("blind_reason")), f"{q['id']} 复核/复答理由为空")
                 check(set(c.get("blind_answer", [])) == set(q.get("answer", [])), f"{q['id']} 独立复答与预设答案不一致")
                 ms = c.get("medical_status")
-                if bank.get("purpose") == "synthetic_demo":
-                    check(ms == "not_applicable_synthetic", f"{q['id']} 虚构工程样例不得标记医学认证")
-                else:
-                    check(ms in {"lecture_consistent", "reference_checked"}, f"{q['id']} 医学核对状态无效")
-                    if q.get("high_risk"):
-                        check(ms == "reference_checked", f"{q['id']} 高风险题需参考资料核对")
-                    if ms == "reference_checked":
-                        rb = c.get("medical_reference_blocks", [])
-                        check(bool(rb) and all(b in blocks and sources[blocks[b]["source_id"]]["role"] == "reference" for b in rb), f"{q['id']} 缺少实际教材/参考资料依据")
+                check(ms in {"lecture_consistent", "reference_checked"}, f"{q['id']} 医学核对状态无效")
+                if q.get("high_risk"):
+                    check(ms == "reference_checked", f"{q['id']} 高风险题需参考资料核对")
+                if ms == "reference_checked":
+                    rb = c.get("medical_reference_blocks", [])
+                    check(bool(rb) and all(b in blocks and sources[blocks[b]["source_id"]]["role"] == "reference" for b in rb), f"{q['id']} 缺少实际教材/参考资料依据")
             ack = review.get("acknowledged_warnings", {})
             for w in warnings:
                 check(nonempty(ack.get(w["code"])), f"待处理警告：{w['code']}")
@@ -520,8 +517,6 @@ def render(project_path, index_path, bank_path, destination, stage="draft", revi
     blocks = {b["id"]: b for b in index["blocks"]}
     sources = {s["id"]: s for s in index["sources"]}
     label = "待独立复核草稿" if stage == "draft" else "流程复核完成的练习版"
-    if bank["purpose"] == "synthetic_demo":
-        label += "｜虚构工程样例，不是医学学习材料"
     notice = label + "。AI 模拟题；非真题、非官方试卷。题数按小题计算。"
     present_types = {q["type"] for q in bank["questions"]}
     instructions = [f"共 {len(bank['questions'])} 题。"]
@@ -588,54 +583,19 @@ def render(project_path, index_path, bank_path, destination, stage="draft", revi
     return report
 
 
-def initialize(workspace, demo=False):
+def initialize(workspace):
     require(not workspace.exists(), "工作目录已存在；请选择新目录，避免覆盖资料")
     workspace.mkdir(parents=True)
-    if demo:
-        for filename in ("project.json", "lecture.md", "bank.json"):
-            shutil.copyfile(ROOT / "assets" / "demo" / filename, workspace / filename)
-        project_path = workspace / "project.json"
-        index_path = workspace / "output/mock-exams/demo/source-index.json"
-        build_index(project_path, "DEMO", index_path)
-        bank = load(workspace / "bank.json")
-        bank["source_index_sha256"] = digest(index_path)
-        bank_path = workspace / "output/mock-exams/demo/bank.json"
-        bridge_path = bank_path.parent / "upstream-bridge.json"
-        bridge = build_bridge(ROOT, get_unit(load(project_path), "DEMO"), "artifact_reuse")
-        shutil.copytree(ROOT / "assets/demo/learning", workspace / "learning")
-        for module in sorted(UPSTREAM_MODULES):
-            artifact_path = workspace / "learning" / (module + ".json")
-            output = load(artifact_path)
-            for origin in output["origins"]:
-                origin["sha256"] = digest(resolve_source(project_path, origin["path"]))
-            artifact_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            bridge["artifacts"].append({"id": "demo-" + module, "module": module, "kind": "learning_design",
-                                        "role": "module_output", "path": "learning/" + module + ".json",
-                                        "sha256": digest(artifact_path),
-                                        "point_map": {i["id"]: i.pop("demo_point_ids") for i in output["items"]}})
-            artifact_path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            bridge["artifacts"][-1]["sha256"] = digest(artifact_path)
-        bridge["routing_refs"] = ["demo-dispatcher"]
-        dump(bridge_path, bridge)
-        bank["integration"] = {"policy": "design_only", "reuse_mode": "artifact_reuse",
-                               "bridge_sha256": digest(bridge_path), "dispatcher_refs": ["demo-dispatcher"]}
-        dump(bank_path, bank)
-        (workspace / "bank.json").unlink()
-        blind(project_path, index_path, bank_path, workspace / "output/mock-exams/demo/blind")
-        render(project_path, index_path, bank_path, workspace / "output/mock-exams/demo/export")
-        dump(bank_path.parent / "attempt.template.json", attempt_template(bank_path, index_path))
-    else:
-        shutil.copyfile(ROOT / "assets/project.template.json", workspace / "project.json")
-        (workspace / "materials").mkdir()
-    return {"workspace": str(workspace), "demo": demo}
+    shutil.copyfile(ROOT / "assets/project.template.json", workspace / "project.json")
+    (workspace / "materials").mkdir()
+    return {"workspace": str(workspace)}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("init", "demo"):
-        p = commands.add_parser(name)
-        p.add_argument("--workspace", required=True)
+    p = commands.add_parser("init")
+    p.add_argument("--workspace", required=True)
     p = commands.add_parser("index")
     p.add_argument("--project", required=True)
     p.add_argument("--unit", required=True)
@@ -660,8 +620,8 @@ def main():
             p.add_argument("--out", required=True)
     args = parser.parse_args()
     try:
-        if args.command in {"init", "demo"}:
-            result = initialize(Path(args.workspace).resolve(), args.command == "demo")
+        if args.command == "init":
+            result = initialize(Path(args.workspace).resolve())
         elif args.command == "index":
             out = output_path(args.project, args.out)
             index = build_index(args.project, args.unit, out)

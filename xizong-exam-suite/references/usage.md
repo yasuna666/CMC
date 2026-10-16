@@ -12,16 +12,6 @@
 
 命题用的讲义保存在你自己的学习项目内，后续可不断增加单元；不用改 Skill 正文。
 
-## 工程演示（无需 API）
-
-下面用相对路径演示，先进入解压后的 xizong-exam-suite 目录。实际医学命题仍需 AI 阅读和写题。
-
-```bash
-python3 scripts/exam_tool.py demo --workspace ../xizong-demo
-```
-
-这会生成明确虚构的 10 题工程演示，启用 artifact_reuse，包含全部五类题型、六模块结构化产物、A2+A1 跨模块引用和空作答模板。打开 `../xizong-demo/output/mock-exams/demo/export/questions.html` 查看试题；同目录 answers.html 是答案，coverage.html 是覆盖与审核表。也同时生成 Markdown。演示默认是待复核草稿，不能作为真实医学练习。
-
 ## 建立真实单元
 
 ```bash
@@ -87,11 +77,3 @@ python3 scripts/exam_tool.py feedback --project ../my-xizong/project.json --inde
 ```
 
 没有 --reviews 时按草稿答案暂定比对；追加 `--reviews ../my-xizong/output/mock-exams/r01/reviews.json` 才会执行已复核题库门槛。生成 feedback.json 和 remediation-plan.json，后者用于指导 AI 在 r02 命题，不是自动生成的题库。新题通过 remediation_refs 绑定计划目标。
-
-## 回归测试
-
-```bash
-python3 -B tests/test_exam_tool.py
-```
-
-测试使用临时目录和明确虚构数据，不更新真实学习记录。

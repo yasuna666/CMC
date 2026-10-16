@@ -30,7 +30,7 @@
 - 每题 verdict=pass、source_status=consistent、item_status=pass，并给具体 notes。
 - blind_answer 与答案集合一致，blind_reason 非空。
 - 一般题 medical_status=lecture_consistent 或 reference_checked；high_risk 必须 reference_checked 并引用实际 reference 块和核对说明。
-- not_applicable_synthetic 仅用于 purpose=synthetic_demo 的明确虚构工程样例，所有输出必须标明，不能用于真实医学题。
+- 医学核对状态必须反映真实讲义或教材/参考资料核对结果。
 - 错误清零；相似度/答案分布警告需修改或逐项写接受理由，不能借警告接受绕过硬错误。
 - 冲突/模糊考点不可参与已审核题，未覆盖点仍显示。
 

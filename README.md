@@ -104,8 +104,6 @@
 | `style` | 真题等表达或题型参考，不替代讲义证据 |
 | `syllabus` | 指定考试范围的考纲材料 |
 
-不要把仓库里的虚构演示当作自己的医学资料。
-
 ## 快速开始
 
 ### 方式一：让 AI 带你完成
@@ -115,28 +113,6 @@
 > 请使用 xizong-exam-suite。根据我提供的生理学第二单元讲义，生成 10 道单元练习：A1 6 道、X 4 道。只使用该单元内容，先列考点和出题分配，再完成命题。请给出每个选项的解释、真实来源定位和考点覆盖表，试题与答案分别保存。没有已有概念库时采用 rules_only；不能完成独立复答时交付待审草稿，不编造审核记录。
 
 你主要负责提供材料、确认学习范围和真实作答；配置、索引与题库 JSON 可以由助手按协议完成。
-
-### 方式二：先体验无需医学材料的演示
-
-在仓库根目录执行：
-
-```bash
-cd xizong-exam-suite
-python3 -B scripts/exam_tool.py demo --workspace ../xizong-demo
-```
-
-演示会创建全新的 `../xizong-demo` 项目，包含 10 道虚构模型题，覆盖五类题型，启用六模块实际产物桥接，并演示 A2 联合 A1 引用。
-
-打开下列文件查看结果：
-
-| 路径（相对技能目录） | 内容 |
-|---|---|
-| `../xizong-demo/output/mock-exams/demo/export/questions.html` | 试题 |
-| `../xizong-demo/output/mock-exams/demo/export/answers.html` | 答案与逐项解析 |
-| `../xizong-demo/output/mock-exams/demo/export/coverage.html` | 考点覆盖与实际条目追踪 |
-| `../xizong-demo/output/mock-exams/demo/attempt.template.json` | 空作答模板 |
-
-演示材料是虚构规则，目的在于体验软件流程；默认输出草稿。重复运行时换一个尚不存在的工作目录。
 
 ## 完整使用教程
 
@@ -302,15 +278,13 @@ python3 scripts/exam_tool.py feedback --project ../my-xizong/project.json --inde
 | `xizong-exam-suite/scripts/exam_tool.py` | 命令行入口 |
 | `xizong-exam-suite/scripts/learning_bridge.py` | 实际产物桥接校验 |
 | `xizong-exam-suite/scripts/learning_loop.py` | 作答比对和再练目标绑定 |
-| `xizong-exam-suite/assets/` | 配置/题库/产物模板和虚构演示 |
-| `xizong-exam-suite/tests/test_exam_tool.py` | 可复现工程回归测试 |
+| `xizong-exam-suite/assets/` | 配置、题库和产物模板 |
 
 ### 命令用途
 
 | 命令 | 用途 |
 |---|---|
 | `init` | 新建学习项目及配置模板 |
-| `demo` | 创建独立虚构演示项目 |
 | `bridge` | 生成 v2 模块规则桥接清单 |
 | `index` | 按本单元选择生成来源索引 |
 | `validate` | 校验题库、桥接、来源和可选审核记录 |
@@ -375,15 +349,7 @@ HTML 可离线打开和通过浏览器打印另存 PDF；工具不自动生成 P
 
 ## 验证范围与版本迁移
 
-当前功能版本已通过 31 项工程回归测试，并用另一份新虚构材料完成独立流程试用。测试覆盖实际产物绑定、跨模块引用、来源与审核门槛、答案隔离、作答边界及再练目标追踪；详见[验证记录](xizong-exam-suite/references/validation-report.md)。
-
-在技能目录运行：
-
-```bash
-python3 -B tests/test_exam_tool.py
-```
-
-这些测试不等于真实医学材料验收，也不代表特定年度考纲适配。只有实际材料和执行记录才能支持相关结论。
+工具的校验范围和限制见[验证记录](xizong-exam-suite/references/validation-report.md)。这不等于真实医学材料验收，也不代表特定年度考纲适配；只有实际材料和执行记录才能支持相关结论。
 
 旧版用户注意：`project.json` 和 `bank.json` 的 schema_version 仍为 1，**桥接清单升级为 2**。保留旧运行目录，重新 bridge，迁移真实产物、条目和知识映射；配置变化后重建索引，并重新进行题库与审核绑定。不能只把旧清单版本号改为 2。
 

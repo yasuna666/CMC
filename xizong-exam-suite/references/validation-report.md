@@ -4,34 +4,9 @@
 
 ## 可复现工程检查
 
-- `python3 -B tests/test_exam_tool.py`：31 项测试通过。全部使用临时目录和虚构数据。
-- 覆盖 rules_only/artifact_reuse、五类题型、六模块产物、A2+A1 跨题型复用、逐题实际条目追踪。
-- 验证无效路由、错误题型映射、错误内置路径、缺失哈希、产物/原始输入变更、未知条目、知识映射不一致、未纳入调度计划、缺失 payload、B 复用规则冲突和旧版本清单均被拒绝。
-- 验证来源摘录、搁置考点、答案与逐项解释一致性、独立复核及旧审核失效、输出目录隔离、拒绝覆盖。
-- 验证学生试卷/盲答包不包含答案字段、设计引用或错因；覆盖报告显示实际复用条目。
-- 验证空作答模板、未作答与提交空答案区分、X 漏选/多选集合、非法作答/重复题号/旧版本绑定拒绝、错因确认要求。
-- 验证反馈 CLI 的暂定/已复核状态、复核记录哈希、原文件不被修改、再练知识绑定及伪造目标拒绝。
-- assets/upstream-manifest.json 中全部原始文件 SHA-256 一致。
-- Skill 格式校验通过；UI 元数据由生成脚本更新。
+工具负责检查项目配置、来源索引、题库结构、桥接哈希、独立复核记录、导出隔离和作答绑定。`assets/upstream-manifest.json` 保存上游文件哈希；真实项目应在自己的讲义、教材和作答记录上执行完整流程。
 
-复核测试记录明确标注 TEST FIXTURE ONLY，仅验证流程门槛，不是真实人工/医学审核。默认演示只导出草稿和空作答模板，不制造真实用户作答。
-
-## 独立新材料试用
-
-另一独立上下文仅依据技能和新的三灯虚构模型，完成 A1×2、A2×1、X×1，创建总调度/A1/A2/X 实际产物，A2 联合 A1 条目，依次执行桥接、索引、校验、草稿导出、空作答模板和反馈。校验零错误、零警告。
-
-明确标记为 synthetic_demo 的测试作答验证了空答案与未作答的区别，以及 X 漏选/多选。只为已提交但未答对的题生成再练目标，状态为 needs_review，错因为 unknown，反馈为 provisional_draft。未生成独立审题记录、真实个人学习记录或医学认证；下一轮新题绑定另由回归测试验证。
-
-## 复现
-
-在 xizong-exam-suite 目录运行：
-
-```bash
-python3 -B tests/test_exam_tool.py
-python3 -B scripts/exam_tool.py demo --workspace ../xizong-demo
-```
-
-演示工作目录须尚不存在。查看 output/mock-exams/demo/export/coverage.html 可见模块和条目追踪；attempt.template.json 是空模板。真实用法和桥接 v1 迁移见 usage.md、upstream-bridge.md。
+校验只证明文件绑定和结构门槛，不证明医学事实、审核身份或学习效果。真实用法和桥接 v1 迁移见 usage.md、upstream-bridge.md。
 
 ## 限制
 

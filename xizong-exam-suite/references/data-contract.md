@@ -5,7 +5,7 @@
 以 assets/project.template.json 为起点。Python 新工具读取 JSON，不依赖 PyYAML；原真题模块仍用原 project.yaml。相对来源路径基于 project.json 所在目录。
 
 - schema_version: 1；mode: unit_practice；scope_policy: lecture_only。
-- purpose: practice，只有自编工程测试才设 synthetic_demo。
+- purpose: practice。
 - target_year、official_alignment_verified：记录实际情况。本版发布单元练习，不直接生成宣称符合官方计分的整卷。
 - exam_profile：option_count、x_min_correct、x_max_correct、x_scoring=exact_set、b_reuse_allowed。
 - sources：id/title/role/path/version/extraction/ocr_reviewed。role 为 lecture/syllabus/style/reference。extraction 为 native 或 ocr。
@@ -19,7 +19,7 @@
 
 ## bank.json
 
-以 assets/bank.template.json 开始，示例结构见 assets/demo/bank.json。空模板不能通过校验；需要 AI 根据真实讲义填写。
+以 assets/bank.template.json 开始。空模板不能通过校验；需要 AI 根据真实讲义填写。
 
 顶层：schema_version=1、unit_id、title、source_type=generated_mock、purpose、source_index_sha256、source_issues、integration、points、blueprint、groups、questions。启用桥接时 integration 至少含 `policy=design_only`、`bridge_sha256` 和 `dispatcher_refs`。
 
@@ -49,7 +49,7 @@ questions 每条：
 | evidence | 每条 block_id、quote（必须是该块内的真实短摘录） |
 | option_analysis | 每项含 correct 布尔、reason、source_blocks；依据必须属于本题 evidence |
 
-仅结构字段合法还不够；自然语言依据与答案是否成立，必须实际审题。引用片段尽量短，覆盖判定所需条件；整段摘录仅在工程样例中为了演示字段。
+仅结构字段合法还不够；自然语言依据与答案是否成立，必须实际审题。引用片段尽量短，覆盖判定所需条件。
 
 ## reviews.json
 

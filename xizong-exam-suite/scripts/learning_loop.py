@@ -26,7 +26,7 @@ def attempt_template(bank_path, index_path):
     return {
         "schema_version": 1, "unit_id": bank["unit_id"], "bank_sha256": sha256(bank_path),
         "source_index_sha256": sha256(index_path), "attempt_id": "", "learner_id": "",
-        "completed_at": "", "record_type": "synthetic_demo" if bank["purpose"] == "synthetic_demo" else "user_attempt",
+        "completed_at": "", "record_type": "user_attempt",
         "instructions": "仅填写真实作答；null=未作答，[]=提交空答案。不得由标准答案生成用户作答。",
         "responses": [{"question_id": q["id"], "selected": None, "learner_explanation": ""} for q in bank["questions"]],
     }
@@ -38,7 +38,7 @@ def assess(bank_path, index_path, attempt_path, reviewed=False):
     require(attempt.get("bank_sha256") == sha256(bank_path) and attempt.get("source_index_sha256") == sha256(index_path), "题库/索引已改变，作答绑定失效")
     require(text(attempt.get("attempt_id")) and text(attempt.get("learner_id")), "需实际 attempt_id 和 learner_id")
     require(timestamp(attempt.get("completed_at")), "completed_at 需带时区的 ISO 时间")
-    expected_type = "synthetic_demo" if bank["purpose"] == "synthetic_demo" else "user_attempt"
+    expected_type = "user_attempt"
     require(attempt.get("record_type") == expected_type, "作答 record_type 与题库用途不一致")
     responses = attempt.get("responses")
     require(isinstance(responses, list) and all(isinstance(r, dict) for r in responses), "responses 必须为对象数组")
@@ -113,7 +113,7 @@ def validate_remediation(project_path, bank, check):
         plan = read_json(plan_path)
         require(plan.get("schema_version") == 1, "再练计划版本无效")
         require(plan.get("unit_id") == bank.get("unit_id"), "跨单元再练需先在新范围重新规划，不能直接复用旧计划")
-        require(plan.get("record_type") == ("synthetic_demo" if bank.get("purpose") == "synthetic_demo" else "user_attempt"), "虚构作答不能用于真实再练")
+        require(plan.get("record_type") == "user_attempt", "再练计划只能绑定真实作答记录")
         bindings = plan["bindings"]
         for key in ("bank", "source_index", "attempt"):
             p = path_from(plan_path.parent, bindings[f"{key}_path"])

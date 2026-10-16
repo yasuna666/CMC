@@ -69,7 +69,7 @@ description: 根据西医综合单元讲义生成原创模拟题、逐项解析�
 - `references/learning-loop.md`：真实作答、暂定/已复核反馈、定向变式追踪。
 - `scripts/exam_tool.py`：初始化、索引、桥接、校验、盲答包、导出、空作答模板和反馈计划。
 - `scripts/learning_bridge.py`、`scripts/learning_loop.py`：上述命令的标准库实现。
-- `assets/`：空白配置、题库模板、上游哈希、明确虚构的工程演示。
+- `assets/`：空白配置、题库模板和上游哈希。
 - `references/upstream/`：完整原始仓库文件，字节不变。
 
 脚本不调用模型 API。AI 负责阅读、命题、审题；Python 负责索引和确定性检查。新工具使用 Python 3.10+ 标准库；PDF 提取额外需要 `pdftotext` 或 `pypdf`，扫描件需宿主 OCR/视觉并核对。输出为离线 Markdown 和可打印 HTML。
